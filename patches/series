@@ -1,3 +1,4 @@
 # Patch series applied to the rpcs3/ submodule, in order. One filename per line.
 0001-cmake-embed-as-subproject.patch
 0002-cellmic-without-openal.patch
+0003-strfmt-noreturn-dtor-clang18.patch

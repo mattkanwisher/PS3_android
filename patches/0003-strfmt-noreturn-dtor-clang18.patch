@@ -1,0 +1,27 @@
+Subject: fmt: make throw_exception's noreturn destructor survive clang 18+
+Why: clang 18+ ignores [[noreturn]] on defaulted functions, so the
+     '[[noreturn]] ~throw_exception() = default;' workaround no longer
+     convinces -Wreturn-type that 'default: fmt::throw_exception(...)'
+     switch arms cannot fall through; with -Werror=return-type (project
+     default) this breaks the build (first hits: PPUDisAsm.h,
+     SPUThread.h on the NDK/android build). A user-provided body of
+     __builtin_unreachable() restores the CFG guarantee, warning-free on
+     clang and gcc.
+Upstream-status: candidate
+
+diff --git a/Utilities/StrFmt.h b/Utilities/StrFmt.h
+index 6d9ea05..6e0182f 100644
+--- a/Utilities/StrFmt.h
++++ b/Utilities/StrFmt.h
+@@ -394,7 +394,10 @@ namespace fmt
+ 		}
+ 
+ #if !defined(_MSC_VER) || defined(__clang__)
+-		[[noreturn]] ~throw_exception() = default;
++		// A user-provided noreturn body (not '= default') is required for clang's
++		// -Wreturn-type CFG to treat the full-expression as noreturn (clang 18+
++		// ignores [[noreturn]] on defaulted functions).
++		[[noreturn]] ~throw_exception() { __builtin_unreachable(); }
+ #endif
+ 	};
+ 

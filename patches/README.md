@@ -40,3 +40,7 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
 2. `0002-cellmic-without-openal.patch` — fix WITHOUT_OPENAL build: guard the
    `alc.h` include (opaque ALC typedefs instead) and the `fmt::alc_error`
    formatter. Upstream-status: candidate.
+3. `0003-strfmt-noreturn-dtor-clang18.patch` — clang 18+ ignores `[[noreturn]]`
+   on defaulted functions; give `fmt::throw_exception`'s destructor a
+   `__builtin_unreachable()` body so `-Werror=return-type` passes.
+   Upstream-status: candidate.
