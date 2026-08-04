@@ -37,3 +37,6 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
 1. `0001-cmake-embed-as-subproject.patch` — resolve rpcs3-relative CMake paths
    via `rpcs3_SOURCE_DIR`/`rpcs3_BINARY_DIR` so the core builds when embedded
    via `add_subdirectory`. Upstream-status: candidate.
+2. `0002-cellmic-without-openal.patch` — fix WITHOUT_OPENAL build: guard the
+   `alc.h` include (opaque ALC typedefs instead) and the `fmt::alc_error`
+   formatter. Upstream-status: candidate.

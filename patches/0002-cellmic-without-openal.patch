@@ -1,0 +1,46 @@
+Subject: cellMic: fix build with WITHOUT_OPENAL
+Why: The Android build stubs OpenAL out (3rdparty target defines
+     WITHOUT_OPENAL=1), and cellMic guards its OpenAL usage accordingly —
+     but the unconditional #include "alc.h" in cellMic.h, the ALCdevice*/
+     ALCenum uses in always-compiled declarations, and the fmt::alc_error
+     formatter (alcGetString) slipped outside the guards. Forward-declare
+     the opaque ALC types under WITHOUT_OPENAL and guard the formatter.
+Upstream-status: candidate
+
+diff --git a/rpcs3/Emu/Cell/Modules/cellMic.cpp b/rpcs3/Emu/Cell/Modules/cellMic.cpp
+index 0c58d2e..ba68199 100644
+--- a/rpcs3/Emu/Cell/Modules/cellMic.cpp
++++ b/rpcs3/Emu/Cell/Modules/cellMic.cpp
+@@ -74,6 +74,7 @@ void fmt_class_string<CellMicInErrorDsp>::format(std::string& out, u64 arg)
+ 	});
+ }
+ 
++#ifndef WITHOUT_OPENAL
+ namespace fmt
+ {
+ 	struct alc_error
+@@ -89,6 +90,7 @@ void fmt_class_string<fmt::alc_error>::format(std::string& out, u64 arg)
+ 	const fmt::alc_error& obj = get_object(arg);
+ 	fmt::append(out, "0x%x='%s'", obj.error, alcGetString(obj.device, obj.error));
+ }
++#endif
+ 
+ void mic_context::operator()()
+ {
+diff --git a/rpcs3/Emu/Cell/Modules/cellMic.h b/rpcs3/Emu/Cell/Modules/cellMic.h
+index a07cec2..148b8ac 100644
+--- a/rpcs3/Emu/Cell/Modules/cellMic.h
++++ b/rpcs3/Emu/Cell/Modules/cellMic.h
+@@ -3,7 +3,12 @@
+ #include "Utilities/Thread.h"
+ #include "Utilities/mutex.h"
+ 
++#ifdef WITHOUT_OPENAL
++typedef struct ALCdevice ALCdevice;
++typedef int ALCenum;
++#else
+ #include "alc.h"
++#endif
+ 
+ // Error Codes
+ enum CellMicInError : u32
