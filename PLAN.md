@@ -195,7 +195,7 @@ Two sides, both small because research confirmed the mechanism:
 
 1. ~~Research: upstream arm64 state, aPS3e, RPCSX, Cocoon mechanism, device/driver matrix~~ ✅ (2026-08-04)
 2. ~~Repo scaffold: plan, license, README with attribution~~ ✅ (this commit)
-3. Add `rpcs3` submodule pinned to current master; port `.gitmodules` skeleton; `docs/ATTRIBUTION.md` + `docs/INTENTS.md` stubs.
+3. ~~Add `rpcs3` submodule pinned to current master (`652cf60`, 2026-08-04 — LLVM 22.1 + arm64 RawSPU fixes in); patch harness; `docs/ATTRIBUTION.md` + `docs/INTENTS.md`~~ ✅
 4. CI job 1: cross-compile bundled LLVM 22 for android-aarch64, publish as a build artifact.
 5. Read through `RPCS3-Android/rpcs3-android` alpha history + RPCSX `android/` dir; write up the expected patch inventory before writing any code.
 6. Pick the final name; rename repo; reserve the package id.

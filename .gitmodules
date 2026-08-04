@@ -1,0 +1,5 @@
+[submodule "rpcs3"]
+	path = rpcs3
+	url = https://github.com/RPCS3/rpcs3.git
+	branch = master
+	shallow = true
