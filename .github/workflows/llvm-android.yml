@@ -8,6 +8,10 @@ name: llvm-android
 on:
   workflow_dispatch:
 
+env:
+  # NDK r28c, pinned; installed from the runner image's baked-in SDK if absent.
+  NDK_VERSION: 28.2.13676358
+
 jobs:
   build-llvm:
     runs-on: ubuntu-24.04
@@ -25,6 +29,16 @@ jobs:
       - name: Install host tools
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
 
+      - name: Set up pinned NDK
+        run: |
+          set -eux
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          NDK="$SDK/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION"
+          fi
+          echo "NDK=$NDK" >> "$GITHUB_ENV"
+
       - name: ccache
         uses: actions/cache@v4
         with:
@@ -35,7 +49,6 @@ jobs:
       - name: Configure LLVM (android-aarch64 cross)
         run: |
           set -eux
-          NDK="$ANDROID_NDK_LATEST_HOME"
           cmake -S rpcs3/3rdparty/llvm/llvm/llvm -B llvm-build -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
