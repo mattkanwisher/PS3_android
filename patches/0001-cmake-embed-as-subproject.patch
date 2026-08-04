@@ -1,0 +1,72 @@
+Subject: cmake: resolve rpcs3-relative paths via rpcs3_SOURCE_DIR/rpcs3_BINARY_DIR
+Why: When rpcs3 is embedded as a subproject (add_subdirectory from an Android
+     superproject), CMAKE_SOURCE_DIR/CMAKE_BINARY_DIR point at the embedder,
+     breaking FindWolfSSL, FindZLIB, the rpcs3_emu include root, and the
+     protobuf generated dir. project(rpcs3) defines rpcs3_SOURCE_DIR /
+     rpcs3_BINARY_DIR, which are identical in standalone builds and correct
+     when embedded.
+Upstream-status: candidate
+
+diff --git a/3rdparty/protobuf/CMakeLists.txt b/3rdparty/protobuf/CMakeLists.txt
+index e1f82f1..0b7a720 100644
+--- a/3rdparty/protobuf/CMakeLists.txt
++++ b/3rdparty/protobuf/CMakeLists.txt
+@@ -2,7 +2,7 @@ add_library(3rdparty_protobuf INTERFACE)
+ if (USE_SYSTEM_PROTOBUF)
+ 	pkg_check_modules(PROTOBUF REQUIRED IMPORTED_TARGET protobuf>=33.0.0)
+ 	target_link_libraries(3rdparty_protobuf INTERFACE PkgConfig::PROTOBUF)
+-	set(PROTOBUF_DIR "${CMAKE_SOURCE_DIR}/rpcs3/Emu/NP/generated")
++	set(PROTOBUF_DIR "${rpcs3_SOURCE_DIR}/rpcs3/Emu/NP/generated")
+ 	execute_process(COMMAND protoc --cpp_out=${PROTOBUF_DIR} --proto_path=${PROTOBUF_DIR} np2_structs.proto RESULT_VARIABLE PROTOBUF_CMD_ERROR)
+ 	if(PROTOBUF_CMD_ERROR AND NOT PROTOBUF_CMD_ERROR EQUAL 0)
+ 		message(FATAL_ERROR "protoc failed to regenerate protobuf files.")
+diff --git a/buildfiles/cmake/FindWolfSSL.cmake b/buildfiles/cmake/FindWolfSSL.cmake
+index 35f3168..9cb344d 100644
+--- a/buildfiles/cmake/FindWolfSSL.cmake
++++ b/buildfiles/cmake/FindWolfSSL.cmake
+@@ -1,3 +1,3 @@
+ set(WOLFSSL_LIBRARY wolfssl)
+-set(WOLFSSL_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/3rdparty/wolfssl)
++set(WOLFSSL_INCLUDE_DIR ${rpcs3_SOURCE_DIR}/3rdparty/wolfssl)
+ set(WOLFSSL_FOUND TRUE)
+diff --git a/buildfiles/cmake/FindZLIB.cmake b/buildfiles/cmake/FindZLIB.cmake
+index ef511d3..c8c3928 100644
+--- a/buildfiles/cmake/FindZLIB.cmake
++++ b/buildfiles/cmake/FindZLIB.cmake
+@@ -8,17 +8,17 @@ else()
+         if(MSVC)
+             # On MSVC, zlib builds as zs.lib (Release) / zsd.lib (Debug) in per-config subdirectories
+             set_target_properties(ZLIB::ZLIB PROPERTIES
+-                IMPORTED_LOCATION_RELEASE         "${CMAKE_BINARY_DIR}/3rdparty/zlib/zlib/Release/zs.lib"
+-                IMPORTED_LOCATION_DEBUG           "${CMAKE_BINARY_DIR}/3rdparty/zlib/zlib/Debug/zsd.lib"
+-                IMPORTED_LOCATION_RELWITHDEBINFO  "${CMAKE_BINARY_DIR}/3rdparty/zlib/zlib/RelWithDebInfo/zs.lib"
+-                IMPORTED_LOCATION_MINSIZEREL      "${CMAKE_BINARY_DIR}/3rdparty/zlib/zlib/MinSizeRel/zs.lib")
++                IMPORTED_LOCATION_RELEASE         "${rpcs3_BINARY_DIR}/3rdparty/zlib/zlib/Release/zs.lib"
++                IMPORTED_LOCATION_DEBUG           "${rpcs3_BINARY_DIR}/3rdparty/zlib/zlib/Debug/zsd.lib"
++                IMPORTED_LOCATION_RELWITHDEBINFO  "${rpcs3_BINARY_DIR}/3rdparty/zlib/zlib/RelWithDebInfo/zs.lib"
++                IMPORTED_LOCATION_MINSIZEREL      "${rpcs3_BINARY_DIR}/3rdparty/zlib/zlib/MinSizeRel/zs.lib")
+         else()
+             # On non-MSVC, zlib OUTPUT_NAME is "z" → libz.a
+             set_target_properties(ZLIB::ZLIB PROPERTIES
+-                IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/3rdparty/zlib/zlib/libz.a")
++                IMPORTED_LOCATION "${rpcs3_BINARY_DIR}/3rdparty/zlib/zlib/libz.a")
+         endif()
+         set_target_properties(ZLIB::ZLIB PROPERTIES
+-            INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_SOURCE_DIR}/3rdparty/zlib/zlib;${CMAKE_BINARY_DIR}/3rdparty/zlib/zlib")
++            INTERFACE_INCLUDE_DIRECTORIES "${rpcs3_SOURCE_DIR}/3rdparty/zlib/zlib;${rpcs3_BINARY_DIR}/3rdparty/zlib/zlib")
+     endif()
+     set(ZLIB_FOUND TRUE)
+ endif()
+diff --git a/rpcs3/Emu/CMakeLists.txt b/rpcs3/Emu/CMakeLists.txt
+index 8293047..f29189f 100644
+--- a/rpcs3/Emu/CMakeLists.txt
++++ b/rpcs3/Emu/CMakeLists.txt
+@@ -99,7 +99,7 @@ if(APPLE)
+     )
+ endif()
+ 
+-target_include_directories(rpcs3_emu PUBLIC "${CMAKE_SOURCE_DIR}")
++target_include_directories(rpcs3_emu PUBLIC "${rpcs3_SOURCE_DIR}")
+ 
+ set_source_files_properties("../../Utilities/JITLLVM.cpp" "../../Utilities/JITASM.cpp" PROPERTIES
+     COMPILE_FLAGS "$<IF:$<CXX_COMPILER_ID:MSVC>,/GR-,-fno-rtti>"
