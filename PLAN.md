@@ -84,7 +84,7 @@ PS3_android/                      (this repo; rename with the project)
 - **NDK r28+** (16 KB page alignment default), CMake, `ANDROID_PLATFORM` = android-29 (Android 10) floor to keep target devices covered (Thor/Odin 2 = 13, Odin 3 = 15); revisit Android 9 floor later if trivial.
 - **LLVM 22 (bundled submodule) cross-compiled for android-aarch64** — the single biggest build task. Built once per LLVM bump in CI, cached/published as a prebuilt artifact so regular builds take minutes, not hours. (aPS3e and RPCSX both prove LLVM-on-NDK works.)
 - Other submodule deps (ffmpeg fork, curl, wolfssl, zlib/zstd, SDL-input parts, yaml-cpp, pugixml, cubeb, …): most are CMake and known to build on NDK. **cubeb has an AAudio backend** — audio likely needs zero new code.
-- **Qt is the one dependency we must excise.** Upstream already splits `emucore` from the Qt GUI (`rpcs3qt/`), and `--headless` exists, but headless still links QtCore. Expect a patch set: CMake option to build emucore without Qt + a small shim for the few QtCore-isms that leak in. This is the highest-uncertainty item → Phase 1 spike measures it. (RPCSX did exactly this; their history shows the seams.)
+- **Qt decoupling: already solved upstream.** ~~Expect a patch set to excise Qt~~ — inspection of the pinned master (2026-08-04) shows upstream's CMake is **Android-aware**: under `ANDROID` it skips Qt/`rpcs3qt` entirely, drops the GL renderer (Vulkan-only), stubs OpenAL, uses `ANativeWindow*` as the native display type (`Emu/RSX/display.h`), and carries `ANDROID`/`__ANDROID__` branches in the JIT (`Utilities/JITLLVM.cpp`), threads (`Utilities/Thread.cpp`), and VM (`util/vm_native.cpp`) layers — evidently upstreamed from the DH/RPCSX effort. The embedder's remaining contract: provide a `3rdparty_ffmpeg` target (our `native/CMakeLists.txt` does, from an NDK-built ffmpeg) and the app shell. This removes the plan's biggest technical unknown.
 
 ### 4.2 Memory, JIT, pages
 
@@ -181,7 +181,7 @@ Two sides, both small because research confirmed the mechanism:
 
 | Risk | Reality check | Mitigation |
 |---|---|---|
-| Qt decoupling balloons the patch set | Highest technical unknown; RPCSX proves it's possible | M1 is scoped exactly to measure this; RPCSX fallback is pre-declared |
+| ~~Qt decoupling balloons the patch set~~ | **Resolved**: upstream master is Android-aware (Qt/GL/OpenAL gated out under `ANDROID`) | Superproject embeds untouched upstream; remaining risk is link-time surprises, measured by CI |
 | Performance disappoints on 8 Gen 2 | aPS3e on 8 *Elite*: 4/17 games playable | Honest compat list from day one; Odin 3-class as the "runs more" tier; ride upstream arm64 gains via cheap submodule bumps |
 | Adreno rendering bugs | Upstream never targeted Adreno | Turnip as reference driver; AdrenoTools loading; upstreamable driver-vendor quirks |
 | Community blowback / impersonation concerns (the reason RPCS3 won't do Android) | Real; killed AetherSX2 | Distinct name, no Play Store initially, GitHub-only releases, clear unofficial-status labeling, issue templates that keep RPCS3's tracker clean, no monetization |
@@ -196,6 +196,7 @@ Two sides, both small because research confirmed the mechanism:
 1. ~~Research: upstream arm64 state, aPS3e, RPCSX, Cocoon mechanism, device/driver matrix~~ ✅ (2026-08-04)
 2. ~~Repo scaffold: plan, license, README with attribution~~ ✅ (this commit)
 3. ~~Add `rpcs3` submodule pinned to current master (`652cf60`, 2026-08-04 — LLVM 22.1 + arm64 RawSPU fixes in); patch harness; `docs/ATTRIBUTION.md` + `docs/INTENTS.md`~~ ✅
-4. CI job 1: cross-compile bundled LLVM 22 for android-aarch64, publish as a build artifact.
-5. Read through `RPCS3-Android/rpcs3-android` alpha history + RPCSX `android/` dir; write up the expected patch inventory before writing any code.
-6. Pick the final name; rename repo; reserve the package id.
+4. ~~CI: `android-core` workflow — NDK cross-build of unmodified `rpcs3_emu` (interpreter config), with an ffmpeg-for-android job baked in; `llvm-android` workflow — LLVM 22 android-aarch64 prebuilt artifact~~ ✅ (authored; iterating on CI results)
+5. Read through `RPCS3-Android/rpcs3-android` alpha history + RPCSX `android/` dir; write up the expected patch inventory (in progress — background recon).
+6. Wire the LLVM prebuilt into `android-core` (`WITH_LLVM=ON`, `LLVM_DIR=`); then the JNI bridge skeleton (`native/bridge`).
+7. Pick the final name; rename repo; reserve the package id.

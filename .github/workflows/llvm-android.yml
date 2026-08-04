@@ -1,0 +1,76 @@
+name: llvm-android
+
+# Cross-compiles the RPCS3-bundled LLVM (3rdparty/llvm/llvm submodule, LLVM 22.x)
+# for android-aarch64 and publishes the install tree as a build artifact.
+# Manual/scheduled: re-run only when upstream bumps its LLVM submodule.
+# Mirrors the options upstream sets in rpcs3/3rdparty/llvm/CMakeLists.txt.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-llvm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init llvm submodule (shallow)
+        run: |
+          git submodule update --init --depth 1 rpcs3
+          cd rpcs3
+          git submodule update --init --depth 1 3rdparty/llvm/llvm
+          echo "LLVM_SHA=$(git -C 3rdparty/llvm/llvm rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-llvm-android-${{ env.LLVM_SHA }}
+          restore-keys: ccache-llvm-android-
+
+      - name: Configure LLVM (android-aarch64 cross)
+        run: |
+          set -eux
+          NDK="$ANDROID_NDK_LATEST_HOME"
+          cmake -S rpcs3/3rdparty/llvm/llvm/llvm -B llvm-build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-29 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$HOME/llvm-android" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DLLVM_TARGETS_TO_BUILD=AArch64 \
+            -DLLVM_DEFAULT_TARGET_TRIPLE=aarch64-none-linux-android29 \
+            -DLLVM_HOST_TRIPLE=aarch64-none-linux-android29 \
+            -DLLVM_BUILD_RUNTIME=OFF \
+            -DLLVM_BUILD_TOOLS=OFF \
+            -DLLVM_INCLUDE_BENCHMARKS=OFF \
+            -DLLVM_INCLUDE_DOCS=OFF \
+            -DLLVM_INCLUDE_EXAMPLES=OFF \
+            -DLLVM_INCLUDE_TESTS=OFF \
+            -DLLVM_INCLUDE_UTILS=OFF \
+            -DLLVM_ENABLE_WARNINGS=OFF \
+            -DLLVM_ENABLE_ZLIB=OFF \
+            -DLLVM_ENABLE_ZSTD=OFF \
+            -DLLVM_ENABLE_LIBXML2=OFF \
+            -DLLVM_ENABLE_TERMINFO=OFF \
+            -DLLVM_ENABLE_LIBEDIT=OFF
+
+      - name: Build + install
+        run: |
+          set -eux
+          cmake --build llvm-build -j"$(nproc)"
+          cmake --install llvm-build
+          tar -C "$HOME" -czf llvm-android-aarch64.tar.gz llvm-android
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: llvm-android-aarch64-${{ env.LLVM_SHA }}
+          path: llvm-android-aarch64.tar.gz
+          retention-days: 90

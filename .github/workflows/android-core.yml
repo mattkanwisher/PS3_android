@@ -1,0 +1,104 @@
+name: android-core
+
+# M1 spike: prove the unmodified upstream RPCS3 core (rpcs3_emu) compiles for
+# android-arm64 with the NDK. Bring-up config is WITH_LLVM=OFF (interpreters);
+# the LLVM prebuilt from the llvm-android workflow gets wired in afterwards.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    paths:
+      - 'native/**'
+      - 'patches/**'
+      - '.gitmodules'
+      - 'ci/**'
+      - '.github/workflows/android-core.yml'
+
+env:
+  FFMPEG_VER: n6.1.2
+
+jobs:
+  build-core:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init rpcs3 submodule (shallow; skip llvm, ffmpeg, MoltenVK)
+        run: |
+          git submodule update --init --depth 1 rpcs3
+          cd rpcs3
+          for m in $(git submodule status | awk '{print $2}' | grep -vE 'llvm|ffmpeg|MoltenVK'); do
+            git submodule update --init --depth 1 "$m"
+          done
+
+      - name: Apply patch series
+        run: sh ci/apply-patches.sh
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ccache nasm
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-android-core-${{ github.sha }}
+          restore-keys: ccache-android-core-
+
+      - name: Cache ffmpeg (android-aarch64)
+        id: ffmpeg-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/ffmpeg-android
+          key: ffmpeg-${{ env.FFMPEG_VER }}-android29-arm64-v2
+
+      - name: Build ffmpeg (android-aarch64)
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: |
+          set -eux
+          NDK="$ANDROID_NDK_LATEST_HOME"
+          TC="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
+          git clone --depth 1 --branch "$FFMPEG_VER" https://github.com/FFmpeg/FFmpeg.git ffmpeg-src
+          cd ffmpeg-src
+          ./configure \
+            --prefix="$HOME/ffmpeg-android" \
+            --enable-cross-compile --target-os=android --arch=aarch64 --cpu=armv8-a \
+            --cc="$TC/bin/aarch64-linux-android29-clang" \
+            --cxx="$TC/bin/aarch64-linux-android29-clang++" \
+            --ar="$TC/bin/llvm-ar" --ranlib="$TC/bin/llvm-ranlib" \
+            --nm="$TC/bin/llvm-nm" --strip="$TC/bin/llvm-strip" \
+            --enable-static --disable-shared --enable-pic \
+            --disable-programs --disable-doc --disable-avdevice \
+            --disable-avfilter --disable-postproc --disable-network \
+            --disable-vulkan
+          make -j"$(nproc)"
+          make install
+
+      - name: Configure (NDK, WITH_LLVM=OFF)
+        run: |
+          set -eux
+          NDK="$ANDROID_NDK_LATEST_HOME"
+          "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/clang" --version
+          cmake -S native -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-29 \
+            -DANDROID_FFMPEG_ROOT="$HOME/ffmpeg-android" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_LLVM=OFF
+
+      - name: Build rpcs3_emu
+        run: cmake --build build --target rpcs3_emu -j"$(nproc)"
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cmake-logs
+          path: |
+            build/CMakeCache.txt
+            build/CMakeFiles/CMakeError.log
+            build/CMakeFiles/CMakeOutput.log
+            build/CMakeFiles/CMakeConfigureLog.yaml
+          if-no-files-found: ignore
