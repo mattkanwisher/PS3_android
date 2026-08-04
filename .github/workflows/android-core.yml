@@ -16,7 +16,8 @@ on:
       - '.github/workflows/android-core.yml'
 
 env:
-  FFMPEG_VER: n6.1.2
+  # rpcs3 master uses ffmpeg 7.1+ APIs (AVCodecConfig in util/media_utils.cpp)
+  FFMPEG_VER: n7.1.1
   # NDK r28c. The ubuntu-24.04 runner image ships the Android SDK + NDK
   # baked in; we pin the exact NDK and install it via the image's sdkmanager
   # only if the image has rotated it out.
