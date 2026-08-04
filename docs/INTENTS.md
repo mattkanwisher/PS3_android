@@ -1,19 +1,21 @@
-# Launch-intent contract (draft)
+# CellStation launch-intent contract (draft)
 
 The public Android intent API for launching games from frontends (Cocoon, Daijishō,
 ES-DE, …). This contract becomes **stable at the first tagged release**; until then it
-is a draft. Placeholders `<package>` / `<name>` resolve once the project name is final.
+is a draft.
+
+Package id: `nu.hyperworks.cellstation`
 
 ## Boot a game
 
-Exported activity: `<package>/.EmulationActivity` (launchMode `singleTask`).
+Exported activity: `nu.hyperworks.cellstation/.EmulationActivity` (launchMode `singleTask`).
 
 Accepted forms:
 
 1. **Custom action + extras** (primary, Daijishō/Cocoon `amStartArguments` style):
    ```
-   am start -n <package>/.EmulationActivity \
-            -a nu.hyperworks.<name>.EMULATE \
+   am start -n nu.hyperworks.cellstation/.EmulationActivity \
+            -a nu.hyperworks.cellstation.EMULATE \
             -e bootPath <content-or-file URI>      # disc image (ISO)
             [-e gameDir <path>]                    # folder-format games (JB rips)
             --activity-clear-task --activity-clear-top
@@ -28,10 +30,10 @@ permission (`--grant-read-uri-permission`).
 
 ```json
 {
-  "name": "<Name>",
-  "uniqueId": "ps3.<package>",
+  "name": "CellStation",
+  "uniqueId": "ps3.nu.hyperworks.cellstation",
   "acceptedFilenameRegex": "^(.*)\\.(?:iso)$",
-  "amStartArguments": "-n <package>/.EmulationActivity\n -a nu.hyperworks.<name>.EMULATE\n -e bootPath {file.uri}\n --activity-clear-task\n --activity-clear-top",
+  "amStartArguments": "-n nu.hyperworks.cellstation/.EmulationActivity\n -a nu.hyperworks.cellstation.EMULATE\n -e bootPath {file.uri}\n --activity-clear-task\n --activity-clear-top",
   "killPackageProcesses": true
 }
 ```

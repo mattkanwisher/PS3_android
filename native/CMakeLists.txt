@@ -15,7 +15,7 @@
 #   cmake --build build --target rpcs3_emu
 
 cmake_minimum_required(VERSION 3.28)
-project(chrysalis_native LANGUAGES C CXX)
+project(cellstation_native LANGUAGES C CXX)
 
 if(NOT ANDROID)
     message(FATAL_ERROR "This superproject is Android-only; build upstream rpcs3 directly for desktop.")
@@ -65,5 +65,5 @@ endif()
 # ---- unmodified upstream core ------------------------------------------------
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../rpcs3" "${CMAKE_BINARY_DIR}/rpcs3")
 
-# ---- JNI bridge (M2): libchrysalis.so wrapping rpcs3_emu --------------------
+# ---- JNI bridge (M2): libcellstation.so wrapping rpcs3_emu ------------------
 # add_subdirectory(bridge)

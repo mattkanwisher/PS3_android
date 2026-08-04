@@ -1,6 +1,6 @@
 # Porting Plan: RPCS3-based PS3 Emulator for Android
 
-*Working title: **Chrysalis** (placeholder — see [Naming](#naming-and-attribution)). This project is based on [RPCS3](https://github.com/RPCS3/rpcs3), the PlayStation 3 emulator by the RPCS3 team, and is not affiliated with or endorsed by them.*
+*Project name: **CellStation** — a play on the PS3's Cell processor. This project is based on [RPCS3](https://github.com/RPCS3/rpcs3), the PlayStation 3 emulator by the RPCS3 team, and is not affiliated with or endorsed by them.*
 
 Last updated: 2026-08-04
 
@@ -150,7 +150,7 @@ Two sides, both small because research confirmed the mechanism:
 ## 7. Naming and attribution
 
 - **Do not ship under "RPCS3"** (team explicitly disowns unofficial builds; DH renamed his own port). Avoid "PS3"/"PlayStation" in the *product* name and iconography (Sony trademarks) — descriptive use in text ("a PS3 emulator") is fine. The GitHub repo should eventually be renamed to the product name (GitHub redirects old URLs).
-- Working title **Chrysalis** — pairs with Cocoon, fits the metamorphosis theme, no collisions found; alternatives: *Silkmoth*, *Cellbloom*, *Imago*. Final call: Matt.
+- Name (decided 2026-08-04): **CellStation** — a play on the Cell processor + PlayStation. Package id: `nu.hyperworks.cellstation`. Note: keep the app icon/branding visually distinct from Sony's PlayStation marks; the name riffs on "Station" so the visual identity should not.
 - Attribution, everywhere it counts:
   - README top: "Based on RPCS3 (© RPCS3 team, GPL-2.0) — https://github.com/RPCS3/rpcs3. Unofficial; not affiliated with or supported by the RPCS3 team."
   - In-app About screen with the same + bundled license text + link to our source and the exact upstream SHA + patch list.
