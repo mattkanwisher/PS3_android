@@ -44,3 +44,6 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
    on defaulted functions; give `fmt::throw_exception`'s destructor a
    `__builtin_unreachable()` body so `-Werror=return-type` passes.
    Upstream-status: candidate.
+4. `0004-vk-android-surface-fix.patch` — `make_WSI_surface` for Android used
+   `VkWin32SurfaceCreateInfoKHR` and `this->m_instance` in a free function;
+   never-compiled code. Upstream-status: candidate.
