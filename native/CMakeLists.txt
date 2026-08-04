@@ -22,10 +22,10 @@ if(NOT ANDROID)
 endif()
 
 # ---- upstream options pinned for Android ------------------------------------
-# WITH_LLVM=OFF is the bring-up configuration (interpreter-only). The LLVM 22
-# android-aarch64 prebuilt produced by ci/llvm-android is wired up next, via
-# WITH_LLVM=ON STATIC_LINK_LLVM=ON LLVM_DIR=<prebuilt>/lib/cmake/llvm.
-option(WITH_LLVM "Use LLVM (requires LLVM_DIR pointing at an android-aarch64 build)" OFF)
+# arm64 requires LLVM (Emu/CPU/Backends/AArch64/* assume it): build with
+# WITH_LLVM=ON STATIC_LINK_LLVM=ON LLVM_DIR=<android-aarch64 prebuilt>/lib/cmake/llvm,
+# using the artifact from the llvm-android workflow.
+option(WITH_LLVM "Use LLVM (requires LLVM_DIR pointing at an android-aarch64 build)" ON)
 
 set(USE_NATIVE_INSTRUCTIONS OFF CACHE BOOL "" FORCE)
 set(USE_VULKAN ON  CACHE BOOL "" FORCE)

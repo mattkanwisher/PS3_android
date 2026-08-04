@@ -18,6 +18,11 @@ on:
 env:
   # rpcs3 master uses ffmpeg 7.1+ APIs (AVCodecConfig in util/media_utils.cpp)
   FFMPEG_VER: n7.1.1
+  # LLVM 22 android-aarch64 prebuilt produced by the llvm-android workflow.
+  # arm64 requires LLVM: Emu/CPU/Backends/AArch64/* assume it unconditionally
+  # (the arm64-without-LLVM config has never existed upstream).
+  LLVM_RUN_ID: "30952529252"
+  LLVM_ARTIFACT: llvm-android-aarch64-ca7933e47d
   # NDK r28c. The ubuntu-24.04 runner image ships the Android SDK + NDK
   # baked in; we pin the exact NDK and install it via the image's sdkmanager
   # only if the image has rotated it out.
@@ -90,7 +95,16 @@ jobs:
           make -j"$(nproc)"
           make install
 
-      - name: Configure (NDK, WITH_LLVM=OFF)
+      - name: Fetch LLVM prebuilt (android-aarch64)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          gh run download "$LLVM_RUN_ID" -n "$LLVM_ARTIFACT" --repo "$GITHUB_REPOSITORY" -D /tmp/llvm-dl
+          tar -C "$HOME" -xzf /tmp/llvm-dl/llvm-android-aarch64.tar.gz
+          test -f "$HOME/llvm-android/lib/cmake/llvm/LLVMConfig.cmake"
+
+      - name: Configure (NDK, WITH_LLVM=ON, prebuilt LLVM 22)
         run: |
           set -eux
           cmake -S native -B build -G Ninja \
@@ -99,7 +113,11 @@ jobs:
             -DANDROID_PLATFORM=android-29 \
             -DANDROID_FFMPEG_ROOT="$HOME/ffmpeg-android" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DWITH_LLVM=OFF
+            -DWITH_LLVM=ON \
+            -DBUILD_LLVM=OFF \
+            -DSTATIC_LINK_LLVM=ON \
+            -DLLVM_DIR="$HOME/llvm-android/lib/cmake/llvm" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH
 
       - name: Build rpcs3_emu
         run: cmake --build build --target rpcs3_emu -j"$(nproc)"
