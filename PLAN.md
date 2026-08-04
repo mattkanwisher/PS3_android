@@ -41,7 +41,7 @@ Last updated: 2026-08-04
 The core constraint — *pull upstream without modification* — dictates the shape. Model: **Dolphin/yuzu-style thin native bridge, Vita3K-style upstream separation.**
 
 ```
-PS3_android/                      (this repo; rename with the project)
+CellStation/                      (this repo)
 ├── rpcs3/                        git submodule → github.com/RPCS3/rpcs3 (upstream master,
 │                                 pinned SHA, bumped on a cadence; NEVER edited in place)
 ├── patches/                      the ONLY divergence from upstream: numbered .patch files
@@ -199,4 +199,4 @@ Two sides, both small because research confirmed the mechanism:
 4. ~~CI: `android-core` workflow — NDK cross-build of unmodified `rpcs3_emu` (interpreter config), with an ffmpeg-for-android job baked in; `llvm-android` workflow — LLVM 22 android-aarch64 prebuilt artifact~~ ✅ (authored; iterating on CI results)
 5. Read through `RPCS3-Android/rpcs3-android` alpha history + RPCSX `android/` dir; write up the expected patch inventory (in progress — background recon).
 6. Wire the LLVM prebuilt into `android-core` (`WITH_LLVM=ON`, `LLVM_DIR=`); then the JNI bridge skeleton (`native/bridge`).
-7. Pick the final name; rename repo; reserve the package id.
+7. ~~Pick the final name~~ ✅ **CellStation** (package id `nu.hyperworks.cellstation`); repo rename to `CellStation` pending (GitHub UI: Settings → General; proxy blocks settings writes from this session).
