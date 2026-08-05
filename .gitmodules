@@ -3,3 +3,4 @@
 	url = https://github.com/RPCS3/rpcs3.git
 	branch = master
 	shallow = true
+	ignore = dirty
