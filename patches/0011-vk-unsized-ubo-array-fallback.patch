@@ -7,9 +7,11 @@ Why: the shader backends emit uniform blocks whose last member is a runtime-size
      graphics pipeline creation then fails with VK_ERROR_UNKNOWN, killing the RSX
      worker threads. Runtime-sized arrays are always legal in storage buffers, so
      emit the affected blocks as "readonly restrict buffer" and register them as
-     storage descriptors when the extension is missing. The extension is now also
-     actually requested (previously it was only chained as a feature struct) on
-     drivers that expose it, so those keep the uniform-block path unchanged.
+     storage descriptors when the extension is missing. Both the GLSL declaration
+     and the program_input type must move together or the descriptor set layout
+     disagrees with the shader and draws silently produce nothing. The extension
+     is now also actually requested (previously it was only chained as a feature
+     struct) on drivers that expose it, so those keep the uniform-block path.
 Upstream-status: candidate
 
 --- a/rpcs3/Emu/RSX/VK/vkutils/device.h
@@ -146,7 +148,7 @@ Upstream-status: candidate
  		.set = vk::glsl::binding_set_index_vertex,
  		.location = vk_prog->binding_table.context_buffer_location,
  		.name = "VertexContextBuffer"
-@@ -198,7 +199,7 @@
+@@ -198,14 +199,14 @@
  			{
  				if (!(m_prog.ctrl & RSX_SHADER_CONTROL_INSTANCED_CONSTANTS))
  				{
@@ -155,6 +157,14 @@ Upstream-status: candidate
  					OS << "{\n";
  					OS << "	vec4 vc[];\n";
  					OS << "};\n\n";
+ 
+ 					in.location = vk_prog->binding_table.cbuf_location;
+ 					in.name = "VertexConstantsBuffer";
+-					in.type = vk::glsl::input_type_uniform_buffer;
++					in.type = vk::glsl::getRuntimeArrayBlockInputType();
+ 
+ 					inputs.push_back(in);
+ 					continue;
 --- a/rpcs3/Emu/RSX/VK/VKFragmentProgram.cpp
 +++ b/rpcs3/Emu/RSX/VK/VKFragmentProgram.cpp
 @@ -104,9 +104,13 @@
