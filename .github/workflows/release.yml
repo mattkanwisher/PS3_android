@@ -130,6 +130,11 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # The rpcs3 submodule vendors third-party gradle-wrapper.jars (SDL's
+          # android-project) that aren't in Gradle's known-checksum list; we
+          # never execute those — only the app's own wrapper runs.
+          validate-wrappers: false
 
       - name: Assemble release APK
         working-directory: app
