@@ -36,7 +36,7 @@ sh ci/build-local.sh
 ```
 
 ```bash
-cd app && gradle assembleDebug
+cd app && ./gradlew assembleDebug
 ```
 
 The build script cross-compiles a static ffmpeg into `~/ffmpeg-android` (first run only), configures `native/` with the NDK toolchain (arm64-v8a, android-29, `WITH_LLVM=ON` against the prebuilt), builds `libcellstation.so`, and stages a stripped copy into `app/src/main/jniLibs/`. Override `ANDROID_NDK_HOME`, `FFMPEG_PREFIX`, `LLVM_PREBUILT`, or `BUILD_DIR` via the environment.

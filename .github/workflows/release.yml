@@ -130,8 +130,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
 
       - name: Assemble release APK
         working-directory: app
@@ -144,7 +142,7 @@ jobs:
           export CELLSTATION_VERSION="$full"
           export CELLSTATION_VERSION_CODE="$build"
           echo "CELLSTATION_FULL_VERSION=$full" >> "$GITHUB_ENV"
-          gradle --no-daemon assembleRelease
+          ./gradlew --no-daemon assembleRelease
           mv build/outputs/apk/release/*.apk "build/outputs/apk/release/CellStation-${full}.apk"
 
       - name: Publish GitHub release

@@ -182,12 +182,10 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
 
       - name: Assemble debug APK
         working-directory: app
-        run: gradle --no-daemon assembleDebug
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -229,8 +227,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
 
       - name: Assemble release APK
         working-directory: app
@@ -239,7 +235,7 @@ jobs:
           build=$(git rev-list --count HEAD)
           export CELLSTATION_VERSION="nightly.${build}"
           export CELLSTATION_VERSION_CODE="$build"
-          gradle --no-daemon assembleRelease
+          ./gradlew --no-daemon assembleRelease
 
       - name: Upload APK (release)
         uses: actions/upload-artifact@v4
@@ -276,12 +272,10 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10.2'
 
       - name: Assemble debug APK (compat)
         working-directory: app
-        run: gradle --no-daemon assembleDebug
+        run: ./gradlew --no-daemon assembleDebug
 
       - name: Upload APK (compat)
         uses: actions/upload-artifact@v4

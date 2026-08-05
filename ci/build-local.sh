@@ -91,4 +91,4 @@ echo "==> Staging stripped lib into app/src/main/jniLibs (mirrors CI)"
 mkdir -p app/src/main/jniLibs/arm64-v8a
 "$TC/bin/llvm-strip" --strip-unneeded "$BUILD_DIR/bridge/libcellstation.so" -o app/src/main/jniLibs/arm64-v8a/libcellstation.so
 ls -lh app/src/main/jniLibs/arm64-v8a/libcellstation.so
-echo "==> Done. Build the APK with: (cd app && gradle assembleDebug)"
+echo "==> Done. Build the APK with: (cd app && ./gradlew assembleDebug)"
