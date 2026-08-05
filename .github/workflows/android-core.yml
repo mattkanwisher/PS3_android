@@ -259,6 +259,17 @@ jobs:
       - name: Init rpcs3 submodule (payload ELFs only)
         run: git submodule update --init --depth 1 rpcs3
 
+      - name: Build translator probe
+        run: |
+          set -eux
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          NDK="$SDK/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION"
+          fi
+          "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android29-clang" \
+            -static -O1 -march=armv8-a -o translator-probe ci/translator-probe.c
+
       - name: Fetch APK (compat)
         uses: actions/download-artifact@v4
         with:
@@ -273,7 +284,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-snapshot -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect -camera-back none
-          script: bash ci/integration-test.sh "$(ls /tmp/apk/*.apk | head -1)" rpcs3/bin/test/gs_gcm_tetris.elf
+          script: bash ci/integration-test.sh "$(ls /tmp/apk/*.apk | head -1)" rpcs3/bin/test/gs_gcm_tetris.elf translator-probe
 
       - name: Upload logcat
         if: always()

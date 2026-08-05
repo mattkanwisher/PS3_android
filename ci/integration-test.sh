@@ -15,6 +15,7 @@ set -euo pipefail
 
 APK="$1"
 ELF="$2"
+PROBE="${3:-}"
 PKG="nu.hyperworks.cellstation"
 PAYLOAD="/data/local/tmp/boot-test.elf"
 TIMEOUT_S=300
@@ -37,6 +38,17 @@ dump_crash() {
 }
 
 echo "== device ABIs: $(adb shell getprop ro.product.cpu.abilist)"
+
+# One-shot map of what the image's arm64 translator accepts (see
+# ci/translator-probe.c) — tells us which instruction killed the app
+# without a guess-fix-rerun cycle per instruction.
+if [ -n "$PROBE" ] && [ -f "$PROBE" ]; then
+    echo "== translator instruction probe:"
+    adb push "$PROBE" /data/local/tmp/translator-probe > /dev/null
+    adb shell chmod 755 /data/local/tmp/translator-probe
+    adb shell /data/local/tmp/translator-probe || true
+fi
+
 echo "== installing $APK"
 adb install -r "$APK"
 
