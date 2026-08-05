@@ -68,6 +68,8 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 finish()
                 return
             }
+            EmulationService.start(this, java.io.File(path).nameWithoutExtension)
+
             thread(name = "EmuBoot") {
                 val result = EmuBridge.boot(path)
                 if (result != 0) {
@@ -128,6 +130,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     override fun onDestroy() {
+        EmulationService.stop(this)
         EmuBridge.kill()
         super.onDestroy()
     }

@@ -17,4 +17,6 @@
     <string name="touch_auto">Auto (hides when a gamepad is used)</string>
     <string name="touch_always">Always on</string>
     <string name="touch_never">Off</string>
+    <string name="emulation_channel">Emulation</string>
+    <string name="emulation_running">Game running</string>
 </resources>
