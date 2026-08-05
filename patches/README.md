@@ -53,3 +53,7 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
 6. `0006-jitllvm-llvm-pre21-compat.patch` — `Module::setTargetTriple(llvm::Triple)`
    requires LLVM ≥ 21 but the build system accepts prebuilt LLVM ≥ 18; guard
    the two call sites. Upstream-status: candidate.
+7. `0007-arm-baseline-override.patch` — make the non-Apple arm64 `-march`
+   baseline overridable (`RPCS3_ARM_BASELINE`, default armv8.1-a); the
+   emulator's arm64 binary translator SIGILLs on LSE. Upstream-status:
+   candidate.

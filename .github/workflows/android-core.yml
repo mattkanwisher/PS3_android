@@ -31,6 +31,16 @@ env:
 
 jobs:
   build-core:
+    strategy:
+      matrix:
+        include:
+          # Shipping baseline: Snapdragon targets all support v8.1 LSE.
+          - baseline: armv8.1-a
+            artifact: libcellstation-arm64-v8a
+          # Compat lane for the emulator boot test: the arm64-on-x86_64
+          # binary translator SIGILLs on LSE instructions.
+          - baseline: armv8-a
+            artifact: libcellstation-arm64-v8a-compat
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -65,8 +75,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ccache
-          key: ccache-android-core-${{ github.sha }}
-          restore-keys: ccache-android-core-
+          key: ccache-android-core-${{ matrix.baseline }}-${{ github.sha }}
+          restore-keys: ccache-android-core-${{ matrix.baseline }}-
 
       - name: Cache ffmpeg (android-aarch64)
         id: ffmpeg-cache
@@ -118,7 +128,8 @@ jobs:
             -DBUILD_LLVM=OFF \
             -DSTATIC_LINK_LLVM=ON \
             -DLLVM_DIR="$HOME/llvm-android/lib/cmake/llvm" \
-            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+            -DRPCS3_ARM_BASELINE=${{ matrix.baseline }}
 
       - name: Build libcellstation.so
         run: |
@@ -129,7 +140,7 @@ jobs:
       - name: Upload libcellstation
         uses: actions/upload-artifact@v4
         with:
-          name: libcellstation-arm64-v8a
+          name: ${{ matrix.artifact }}
           path: build/bridge/libcellstation.stripped.so
           retention-days: 30
 
@@ -185,13 +196,55 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
+  # Same APK but around the armv8-a compat lib - only used by the emulator
+  # boot test (the translator SIGILLs on the shipping armv8.1 build).
+  build-apk-compat:
+    needs: build-core
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch compat libcellstation
+        uses: actions/download-artifact@v4
+        with:
+          name: libcellstation-arm64-v8a-compat
+          path: /tmp/cellstation-lib
+
+      - name: Place native lib
+        run: |
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp /tmp/cellstation-lib/libcellstation.stripped.so app/src/main/jniLibs/arm64-v8a/libcellstation.so
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Assemble debug APK (compat)
+        working-directory: app
+        run: gradle --no-daemon assembleDebug
+
+      - name: Upload APK (compat)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cellstation-debug-apk-compat
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 15
+
   # Boot-test on an Android emulator. GitHub's Apple-silicon runners cannot
   # run arm64 AVDs (no nested virtualization: HVF error HV_UNSUPPORTED), so
   # this uses a KVM-accelerated x86_64 image whose bundled ndk_translation
   # runs our arm64-v8a lib. Payload: the RPCS3 team's own GPL homebrew test
   # ELFs from the submodule — never commercial content.
   integration-test:
-    needs: build-apk
+    needs: build-apk-compat
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -206,10 +259,10 @@ jobs:
       - name: Init rpcs3 submodule (payload ELFs only)
         run: git submodule update --init --depth 1 rpcs3
 
-      - name: Fetch APK
+      - name: Fetch APK (compat)
         uses: actions/download-artifact@v4
         with:
-          name: cellstation-debug-apk
+          name: cellstation-debug-apk-compat
           path: /tmp/apk
 
       - name: Boot gs_gcm_tetris.elf on emulator

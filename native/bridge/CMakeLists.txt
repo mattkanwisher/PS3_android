@@ -24,8 +24,13 @@ target_include_directories(cellstation PRIVATE
     "${rpcs3_SOURCE_DIR}"
 )
 
-# Match emucore's arch baseline; keep exceptions off like the rest of the tree.
-target_compile_options(cellstation PRIVATE -march=armv8.1-a -fno-exceptions)
+# Match emucore's arch baseline (see patch 0007: RPCS3_ARM_BASELINE, default
+# armv8.1-a; CI's emulator lane builds armv8-a because the arm64 binary
+# translator lacks LSE); keep exceptions off like the rest of the tree.
+if(NOT RPCS3_ARM_BASELINE)
+    set(RPCS3_ARM_BASELINE armv8.1-a)
+endif()
+target_compile_options(cellstation PRIVATE -march=${RPCS3_ARM_BASELINE} -fno-exceptions)
 
 target_link_libraries(cellstation PRIVATE
     rpcs3_emu
