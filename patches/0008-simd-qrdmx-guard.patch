@@ -1,0 +1,29 @@
+Subject: simd: guard SQRDMLAH intrinsic behind __ARM_FEATURE_QRDMX
+Why: vqrdmlahq_s16 is ARMv8.1 (QRDMX extension); with the -march baseline
+ made overridable (RPCS3_ARM_BASELINE) an armv8-a build fails to compile.
+ The fallback is bit-exact: saturating widening doubling multiply-accumulate
+ onto (c << 16), then rounding saturating narrow — intermediate saturation
+ clamps to the same final ssat16 result as the unsaturated computation.
+Upstream-status: candidate
+
+diff --git a/rpcs3/util/simd.hpp b/rpcs3/util/simd.hpp
+index f07163e..2a34113 100644
+--- a/rpcs3/util/simd.hpp
++++ b/rpcs3/util/simd.hpp
+@@ -1880,8 +1880,15 @@ inline v128 gv_muladdfs(const v128& a, const v128& b, const v128& c)
+ // -> ssat((a * b * 2 + (c << 16) + 0x8000) >> 16)
+ inline v128 gv_rmuladds_hds16(const v128& a, const v128& b, const v128& c)
+ {
+-#if defined(ARCH_ARM64)
++#if defined(ARCH_ARM64) && defined(__ARM_FEATURE_QRDMX)
+ 	return vqrdmlahq_s16(c, a, b);
++#elif defined(ARCH_ARM64)
++	// armv8.0 fallback: SQRDMLAH is v8.1 (QRDMX); widen to s32, saturating
++	// doubling multiply-accumulate onto (c << 16), then rounding narrow.
++	const int16x8_t va = a, vb = b, vc = c;
++	const int32x4_t lo = vqdmlal_s16(vshll_n_s16(vget_low_s16(vc), 16), vget_low_s16(va), vget_low_s16(vb));
++	const int32x4_t hi = vqdmlal_s16(vshll_n_s16(vget_high_s16(vc), 16), vget_high_s16(va), vget_high_s16(vb));
++	return vcombine_s16(vqrshrn_n_s32(lo, 16), vqrshrn_n_s32(hi, 16));
+ #elif defined(ARCH_X64)
+ 	const auto x80 = _mm_set1_epi16(0x80); // 0x80 * 0x80 = 0x4000, add this to the product
+ 	const auto al = _mm_unpacklo_epi16(a, x80);

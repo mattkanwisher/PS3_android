@@ -6,3 +6,4 @@
 0005-vkoverlays-include-image.patch
 0006-jitllvm-llvm-pre21-compat.patch
 0007-arm-baseline-override.patch
+0008-simd-qrdmx-guard.patch

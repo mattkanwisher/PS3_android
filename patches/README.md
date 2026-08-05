@@ -57,3 +57,7 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
    baseline overridable (`RPCS3_ARM_BASELINE`, default armv8.1-a); the
    emulator's arm64 binary translator SIGILLs on LSE. Upstream-status:
    candidate.
+8. `0008-simd-qrdmx-guard.patch` — `vqrdmlahq_s16` is ARMv8.1 (QRDMX);
+   guard it behind `__ARM_FEATURE_QRDMX` with a bit-exact armv8.0 NEON
+   fallback so the overridable baseline actually compiles.
+   Upstream-status: candidate.
