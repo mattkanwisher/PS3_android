@@ -1,0 +1,45 @@
+name: artifact-to-branch
+
+# Dev utility: copy a workflow-run artifact onto the orphan branch `ci-bin`
+# so it can be fetched over plain git. Exists because some dev environments
+# can reach github.com but not the Azure blob storage that backs artifact
+# downloads.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: workflow run id holding the artifact
+        required: true
+      artifact:
+        description: artifact name
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          gh run download "${{ inputs.run_id }}" -n "${{ inputs.artifact }}" --repo "$GITHUB_REPOSITORY" -D /tmp/artifact-dl
+
+      - name: Push to ci-bin branch
+        run: |
+          set -eux
+          git checkout --orphan ci-bin
+          git rm -rf --cached . >/dev/null
+          mkdir -p artifact
+          cp -r /tmp/artifact-dl/. artifact/
+          git add -f artifact
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com \
+            commit -m "artifact: ${{ inputs.artifact }} from run ${{ inputs.run_id }}"
+          git push -f origin HEAD:ci-bin
