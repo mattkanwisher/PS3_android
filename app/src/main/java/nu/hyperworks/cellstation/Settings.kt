@@ -20,6 +20,7 @@ object Settings {
 
     private const val PREFS = "cellstation"
     private const val KEY_TOUCH_OVERLAY = "touch_overlay_mode"
+    private const val KEY_SCAN_FOLDERS = "scan_folders"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -29,5 +30,19 @@ object Settings {
 
     fun setTouchOverlayMode(context: Context, mode: TouchOverlayMode) {
         prefs(context).edit().putString(KEY_TOUCH_OVERLAY, mode.name).apply()
+    }
+
+    /** Extra folders the user pointed us at, on top of the conventional roots. */
+    fun scanFolders(context: Context): Set<String> =
+        prefs(context).getStringSet(KEY_SCAN_FOLDERS, emptySet()).orEmpty()
+
+    fun addScanFolder(context: Context, path: String) {
+        val updated = scanFolders(context) + path
+        prefs(context).edit().putStringSet(KEY_SCAN_FOLDERS, updated).apply()
+    }
+
+    fun removeScanFolder(context: Context, path: String) {
+        val updated = scanFolders(context) - path
+        prefs(context).edit().putStringSet(KEY_SCAN_FOLDERS, updated).apply()
     }
 }

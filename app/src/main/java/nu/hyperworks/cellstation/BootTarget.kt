@@ -87,6 +87,28 @@ object BootTarget {
         target.absolutePath
     }.getOrNull()
 
+    /**
+     * Maps a folder picked through the SAF tree picker onto a real path, so the
+     * library can scan it directly (MANAGE_EXTERNAL_STORAGE makes that legal,
+     * and scanning gigabytes through a content provider would not be viable).
+     */
+    fun pathFromTreeUri(uri: Uri): String? {
+        val docId = runCatching {
+            android.provider.DocumentsContract.getTreeDocumentId(uri)
+        }.getOrNull() ?: return null
+
+        val parts = docId.split(':', limit = 2)
+        if (parts.size != 2) return null
+
+        val (volume, relative) = parts
+        val base = if (volume.equals("primary", ignoreCase = true)) {
+            Environment.getExternalStorageDirectory().absolutePath
+        } else {
+            "/storage/$volume"
+        }
+        return File(base, relative).takeIf { it.isDirectory }?.absolutePath
+    }
+
     /** A folder-format game: hand the core the executable inside it. */
     private fun resolveGameDir(dir: String): String? {
         val root = File(dir)
