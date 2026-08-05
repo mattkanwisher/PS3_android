@@ -54,12 +54,42 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "Emu/Io/pad_config.h"
+
 LOG_CHANNEL(cellstation_log, "CELLSTATION");
 
 // Defined in Utilities/File.cpp for the Android embedder to fill in.
 extern std::string g_android_executable_dir;
 extern std::string g_android_config_dir;
 extern std::string g_android_cache_dir;
+
+// Upstream defines these in Qt-side translation units (rpcs3.cpp,
+// rpcs3qt/pad_settings_dialog.cpp); the emucore/Input objects reference them.
+std::string g_input_config_override;
+cfg_input_configurations g_cfg_input_configs;
+
+// RtMidi's Android backend calls JNI_GetCreatedJavaVMs, which is not a public
+// NDK export. We know our VM from JNI_OnLoad, so provide the symbol here.
+static JavaVM* g_java_vm = nullptr;
+
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*)
+{
+	g_java_vm = vm;
+	return JNI_VERSION_1_6;
+}
+
+extern "C" jint JNI_GetCreatedJavaVMs(JavaVM** vm_buf, jsize buf_len, jsize* n_vms)
+{
+	jsize count = 0;
+	if (g_java_vm && buf_len > 0)
+	{
+		vm_buf[0] = g_java_vm;
+		count = 1;
+	}
+	if (n_vms)
+		*n_vms = count;
+	return JNI_OK;
+}
 
 [[noreturn]] void report_fatal_error(std::string_view text, bool /*is_html*/ = false, bool /*include_help_text*/ = true)
 {

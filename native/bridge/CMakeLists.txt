@@ -14,6 +14,8 @@ add_library(cellstation SHARED
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/ps_move_handler.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/ps_move_config.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/ps_move_calibration.cpp"
+    "${rpcs3_SOURCE_DIR}/rpcs3/Input/ps_move_tracker.cpp"
+    "${rpcs3_SOURCE_DIR}/rpcs3/Input/mouse_gyro_handler.cpp"
 )
 
 set_target_properties(cellstation PROPERTIES CXX_STANDARD 23 CXX_STANDARD_REQUIRED ON)
@@ -29,6 +31,7 @@ target_compile_options(cellstation PRIVATE -march=armv8.1-a -fno-exceptions)
 target_link_libraries(cellstation PRIVATE
     rpcs3_emu
     3rdparty_hidapi
+    Fusion
     android
     log
     nativewindow
