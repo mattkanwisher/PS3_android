@@ -8,3 +8,4 @@
 0007-arm-baseline-override.patch
 0008-simd-qrdmx-guard.patch
 0009-vk-adreno-driver-vendor.patch
+0010-vk-unsized-ubo-array-fallback.patch
