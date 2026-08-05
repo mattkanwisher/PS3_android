@@ -3,3 +3,4 @@
 0002-cellmic-without-openal.patch
 0003-strfmt-noreturn-dtor-clang18.patch
 0004-vk-android-surface-fix.patch
+0005-vkoverlays-include-image.patch

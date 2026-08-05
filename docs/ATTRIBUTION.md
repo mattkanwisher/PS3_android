@@ -13,7 +13,7 @@ RPCS3 team.
 | Branch tracked | `master` |
 | Pinned commit | `652cf60bfee5482a8287efc19b65d94f5e68c5c0` (2026-08-04) |
 | Notable at this pin | Bundled LLVM 22.1; arm64 PPU/SPU LLVM recompilers; RawSPU arm64 MMIO handling |
-| Local patches | 4 — CMake subproject-embedding paths; cellMic WITHOUT_OPENAL; fmt noreturn-dtor for clang 18+; Android Vulkan surface creation fix. All upstream candidates (see [`patches/series`](../patches/series)) |
+| Local patches | 5 — CMake subproject-embedding paths; cellMic WITHOUT_OPENAL; fmt noreturn-dtor (clang 18+); Android Vulkan surface fix; VKOverlays missing include (libc++). All upstream candidates (see [`patches/series`](../patches/series)) |
 
 Update this table on every submodule bump. Every tagged release must state the exact
 pin + patch series it was built from.

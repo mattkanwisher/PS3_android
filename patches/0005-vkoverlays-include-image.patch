@@ -1,0 +1,21 @@
+Subject: vk: include vkutils/image.h in VKOverlays.h
+Why: ui_overlay_renderer holds std::vector/map of std::unique_ptr<vk::image>
+     and inherits a virtual destructor, so vk::image must be complete when
+     the class is defined. The header only sees the forward declaration
+     from vkutils/sync.h and relies on include-order luck; libc++ (NDK)
+     rejects it (static_assert in unique_ptr's deleter), libstdc++ happens
+     to accept. Include the definition directly.
+Upstream-status: candidate
+
+diff --git a/rpcs3/Emu/RSX/VK/VKOverlays.h b/rpcs3/Emu/RSX/VK/VKOverlays.h
+index e354d23..3a6e89a 100644
+--- a/rpcs3/Emu/RSX/VK/VKOverlays.h
++++ b/rpcs3/Emu/RSX/VK/VKOverlays.h
+@@ -8,6 +8,7 @@
+ 
+ #include "vkutils/data_heap.h"
+ #include "vkutils/descriptors.h"
++#include "vkutils/image.h"
+ #include "vkutils/graphics_pipeline_state.hpp"
+ 
+ #include "Emu/IdManager.h"

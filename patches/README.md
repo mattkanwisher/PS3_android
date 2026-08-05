@@ -47,3 +47,6 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
 4. `0004-vk-android-surface-fix.patch` — `make_WSI_surface` for Android used
    `VkWin32SurfaceCreateInfoKHR` and `this->m_instance` in a free function;
    never-compiled code. Upstream-status: candidate.
+5. `0005-vkoverlays-include-image.patch` — `VKOverlays.h` needs the full
+   `vk::image` definition (unique_ptr members + virtual dtor); libc++
+   rejects the forward-decl-only include chain. Upstream-status: candidate.
