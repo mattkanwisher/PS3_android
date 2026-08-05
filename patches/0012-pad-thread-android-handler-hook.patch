@@ -1,0 +1,32 @@
+Subject: input: let the embedder provide the pad handler on Android
+Why: Android delivers controller input to the focused activity via KeyEvent /
+     MotionEvent, not through HID or evdev, so none of the built-in handlers
+     can see a handheld's built-in controller and the ANDROID branch simply
+     returned NullPadHandler. Call a factory the embedder defines instead, so
+     an Android-native handler can be supplied without patching more of the
+     tree. No change for any other platform.
+Upstream-status: local-only (Android embedders only; upstream has no such handler)
+
+--- a/rpcs3/Input/pad_thread.cpp
++++ b/rpcs3/Input/pad_thread.cpp
+@@ -17,6 +17,9 @@
+ #endif
+ #ifndef ANDROID
+ #include "keyboard_pad_handler.h"
++#else
++// Provided by the embedder (see native/bridge/android_pad_handler.cpp).
++std::shared_ptr<PadHandlerBase> make_android_pad_handler();
+ #endif
+ #include "Emu/Io/Null/NullPadHandler.h"
+ #include "Emu/Io/interception.h"
+@@ -858,7 +861,9 @@
+ 		return std::make_shared<NullPadHandler>();
+ 	case pad_handler::keyboard:
+ #ifdef ANDROID
+-		return std::make_shared<NullPadHandler>();
++		// Android delivers controller input to the focused activity, not via
++		// HID/evdev, so the embedder supplies the platform handler.
++		return make_android_pad_handler();
+ #else
+ 		return std::make_shared<keyboard_pad_handler>();
+ #endif

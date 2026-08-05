@@ -31,6 +31,11 @@ object EmuBridge {
 
     external fun surfaceEvent(surface: Surface?, event: Int): Boolean
 
+    /** Pushes a full pad snapshot (values 0..255, indexed by PadButton). */
+    external fun setPadState(values: ByteArray)
+
+    external fun setPadConnected(connected: Boolean)
+
     external fun kill()
     external fun pause()
     external fun resume()

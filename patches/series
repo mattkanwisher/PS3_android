@@ -10,3 +10,4 @@
 0009-vk-adreno-driver-vendor.patch
 0010-cntfrq-sigill-safe.patch
 0011-vk-unsized-ubo-array-fallback.patch
+0012-pad-thread-android-handler-hook.patch

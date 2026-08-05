@@ -38,6 +38,7 @@
 #include "Emu/Cell/Modules/cellSaveData.h"
 #include "Emu/Cell/Modules/sceNpTrophy.h"
 #include "Input/pad_thread.h"
+#include "android_pad_handler.h"
 #include "Loader/PUP.h"
 #include "Loader/TAR.h"
 #include "Crypto/unself.h"
@@ -656,6 +657,25 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_surfaceEvent
 	if (ANativeWindow* old = g_native_window.exchange(nullptr))
 		ANativeWindow_release(old);
 	return JNI_TRUE;
+}
+
+JNIEXPORT void JNICALL Java_nu_hyperworks_cellstation_EmuBridge_setPadState(JNIEnv* env, jclass, jbyteArray jvalues)
+{
+	if (!jvalues) return;
+
+	chrysalis::android_pad_state state{};
+	state.connected = true;
+
+	const jsize len = std::min<jsize>(env->GetArrayLength(jvalues), static_cast<jsize>(state.values.size()));
+	env->GetByteArrayRegion(jvalues, 0, len, reinterpret_cast<jbyte*>(state.values.data()));
+
+	chrysalis::set_android_pad_state(state);
+
+}
+
+JNIEXPORT void JNICALL Java_nu_hyperworks_cellstation_EmuBridge_setPadConnected(JNIEnv*, jclass, jboolean connected)
+{
+	chrysalis::set_android_pad_connected(connected == JNI_TRUE);
 }
 
 JNIEXPORT void JNICALL Java_nu_hyperworks_cellstation_EmuBridge_kill(JNIEnv*, jclass)
