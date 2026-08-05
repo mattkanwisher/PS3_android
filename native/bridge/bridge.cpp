@@ -8,6 +8,7 @@
 #include "stdafx.h"
 #include "util/types.hpp"
 #include "util/logs.hpp"
+#include "util/asm.hpp"
 #include "Utilities/Thread.h"
 #include "Utilities/File.h"
 #include "Emu/System.h"
@@ -546,6 +547,12 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(J
 	});
 	Emu.SetDefaultRenderer(video_renderer::null);
 	Emu.Init();
+
+#ifdef ARCH_ARM64
+	// Scale busy-wait budgets to the (usually 19.2MHz) arm generic timer,
+	// as upstream's main() does.
+	utils::init_arm_timer_scale();
+#endif
 
 	init_callbacks();
 

@@ -1,0 +1,140 @@
+Subject: util: make CNTFRQ_EL0 reads survive binary translators
+Why: sysinfo.cpp evaluates the TSC frequency in a static initializer that
+ executes `mrs cntfrq_el0` raw; the Android emulator's arm64 translator
+ (ndk_translation 0.2.2) does not implement the register and kills the
+ process with SIGILL at library load ("Undefined instruction 0xd53be008").
+ Add utils::get_cntfrq_safe(): reads CNTFRQ_EL0 under a scoped SIGILL
+ handler and, when it faults, calibrates CNTVCT_EL0 against
+ CLOCK_MONOTONIC (rounded to 10kHz). Route the static initializer and
+ init_arm_timer_scale() through it.
+Upstream-status: candidate
+
+diff --git a/rpcs3/util/asm.hpp b/rpcs3/util/asm.hpp
+index 008aaa0..ee6eca2 100644
+--- a/rpcs3/util/asm.hpp
++++ b/rpcs3/util/asm.hpp
+@@ -198,9 +198,8 @@ namespace utils
+ 
+ 	inline void init_arm_timer_scale()
+ 	{
+-		u64 freq = 0;
+-		asm volatile("mrs %0, cntfrq_el0" : "=r"(freq));
+-		
++		const u64 freq = get_cntfrq_safe();
++
+ 		// Try to scale hardware timer to match 3GHz
+ 		u64 timer_scale = freq / 30000000;
+ 		if (timer_scale)
+diff --git a/rpcs3/util/sysinfo.cpp b/rpcs3/util/sysinfo.cpp
+index fcb34af..cf0fb4b 100755
+--- a/rpcs3/util/sysinfo.cpp
++++ b/rpcs3/util/sysinfo.cpp
+@@ -1,4 +1,10 @@
+ #include "util/sysinfo.hpp"
++
++#ifdef ARCH_ARM64
++#include <csetjmp>
++#include <csignal>
++#include <ctime>
++#endif
+ #include "Utilities/StrFmt.h"
+ #include "Utilities/File.h"
+ #include "Emu/vfs_config.h"
+@@ -912,14 +918,77 @@ namespace utils
+ 	u64 s_tsc_freq = 0;
+ }
+ 
++#ifdef ARCH_ARM64
++namespace
++{
++	sigjmp_buf g_cntfrq_jmp;
++
++	[[noreturn]] void cntfrq_sigill_handler(int)
++	{
++		siglongjmp(g_cntfrq_jmp, 1);
++	}
++}
++
++u64 utils::get_cntfrq_safe()
++{
++	// CNTFRQ_EL0 is not implemented by some binary translators (the Android
++	// emulator's ndk_translation kills the process with SIGILL on it). Read
++	// it under a scoped SIGILL handler; when it faults, calibrate CNTVCT_EL0
++	// against CLOCK_MONOTONIC instead.
++	struct sigaction act{};
++	struct sigaction old{};
++	act.sa_handler = cntfrq_sigill_handler;
++	sigemptyset(&act.sa_mask);
++
++	if (sigaction(SIGILL, &act, &old))
++	{
++		return 0;
++	}
++
++	u64 freq = 0;
++
++	if (!sigsetjmp(g_cntfrq_jmp, 1))
++	{
++		__asm__ volatile("mrs %0, cntfrq_el0" : "=r" (freq));
++	}
++
++	if (!freq)
++	{
++		u64 c0 = 0, c1 = 0;
++		struct timespec t0{};
++		struct timespec t1{};
++
++		if (!sigsetjmp(g_cntfrq_jmp, 1))
++		{
++			__asm__ volatile("isb\nmrs %0, cntvct_el0" : "=r" (c0));
++			clock_gettime(CLOCK_MONOTONIC, &t0);
++			const struct timespec wait{0, 20'000'000};
++			nanosleep(&wait, nullptr);
++			__asm__ volatile("isb\nmrs %0, cntvct_el0" : "=r" (c1));
++			clock_gettime(CLOCK_MONOTONIC, &t1);
++
++			const s64 ns = (t1.tv_sec - t0.tv_sec) * 1'000'000'000ll + (t1.tv_nsec - t0.tv_nsec);
++
++			if (ns > 0 && c1 > c0)
++			{
++				// Counters run at neat frequencies (19.2MHz, 24MHz, 1GHz...): round to 10kHz
++				freq = utils::rounded_div((c1 - c0) * 1'000'000'000ull, static_cast<u64>(ns));
++				freq = utils::rounded_div(freq, 10'000) * 10'000;
++			}
++		}
++	}
++
++	sigaction(SIGILL, &old, nullptr);
++	return freq;
++}
++#endif
++
+ static const bool s_tsc_freq_evaluated = []() -> bool
+ {
+ 	static const ullong cal_tsc = []() -> ullong
+ 	{
+ #ifdef ARCH_ARM64
+-		u64 r = 0;
+-		__asm__ volatile("mrs %0, cntfrq_el0" : "=r" (r));
+-		return r;
++		return utils::get_cntfrq_safe();
+ #endif
+ 
+ 		if (!utils::has_invariant_tsc())
+diff --git a/rpcs3/util/sysinfo.hpp b/rpcs3/util/sysinfo.hpp
+index 5d36f24..f780ef9 100755
+--- a/rpcs3/util/sysinfo.hpp
++++ b/rpcs3/util/sysinfo.hpp
+@@ -112,6 +112,12 @@ namespace utils
+ 
+ 	inline const u64 main_tid = _get_main_tid();
+ 
++#ifdef ARCH_ARM64
++	// CNTFRQ_EL0, or a calibrated equivalent when reading it traps (some
++	// binary translators do not implement the register). 0 if unknown.
++	u64 get_cntfrq_safe();
++#endif
++
+ 	extern u64 s_tsc_freq;
+ 
+ 	inline ullong get_tsc_freq()

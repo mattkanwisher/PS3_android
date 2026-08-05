@@ -38,6 +38,9 @@ int main(void)
 	uint64_t v = 0;
 	(void)v;
 
+	printf("PROBE-START\n");
+	fflush(stdout);
+
 	// System registers rpcs3 + its deps read (util/tsc.hpp, util/sysinfo.cpp,
 	// util/simd.hpp, sse2neon.h, bionic/compiler-rt cache maintenance).
 	PROBE("mrs cntvct_el0", asm volatile("mrs %0, cntvct_el0" : "=r"(v)));

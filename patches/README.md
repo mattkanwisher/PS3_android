@@ -66,3 +66,8 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
    (Qualcomm proprietary + Mesa Turnip driver IDs, GPU-name fallback) so
    Snapdragon GPUs stop logging "Unknown driver vendor!" and can grow
    vendor-specific paths. Upstream-status: candidate.
+10. `0010-cntfrq-sigill-safe.patch` — `mrs cntfrq_el0` in a static
+    initializer SIGILLs under binary translators that don't implement the
+    register (the emulator's ndk_translation); read it via a SIGILL-guarded
+    helper that falls back to calibrating `cntvct` against
+    `CLOCK_MONOTONIC`. Upstream-status: candidate.

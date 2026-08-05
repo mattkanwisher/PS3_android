@@ -46,7 +46,9 @@ if [ -n "$PROBE" ] && [ -f "$PROBE" ]; then
     echo "== translator instruction probe:"
     adb push "$PROBE" /data/local/tmp/translator-probe > /dev/null
     adb shell chmod 755 /data/local/tmp/translator-probe
-    adb shell /data/local/tmp/translator-probe || true
+    # Echo the exit status: a probe killed before main() (binfmt/loader
+    # trouble) shows as a bare non-zero RC with no PROBE lines at all.
+    adb shell '/data/local/tmp/translator-probe 2>&1; echo PROBE-RC:$?' || true
 fi
 
 echo "== installing $APK"

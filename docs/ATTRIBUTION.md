@@ -13,7 +13,7 @@ RPCS3 team.
 | Branch tracked | `master` |
 | Pinned commit | `652cf60bfee5482a8287efc19b65d94f5e68c5c0` (2026-08-04) |
 | Notable at this pin | Bundled LLVM 22.1; arm64 PPU/SPU LLVM recompilers; RawSPU arm64 MMIO handling |
-| Local patches | 9 — CMake subproject embedding; cellMic WITHOUT_OPENAL; fmt noreturn-dtor (clang 18+); Android Vulkan surface fix; VKOverlays include; JITLLVM pre-21 LLVM compat; arm64 -march baseline override; SQRDMLAH QRDMX guard; Adreno VK driver vendor. All upstream candidates (see [`patches/series`](../patches/series)) |
+| Local patches | 10 — CMake subproject embedding; cellMic WITHOUT_OPENAL; fmt noreturn-dtor (clang 18+); Android Vulkan surface fix; VKOverlays include; JITLLVM pre-21 LLVM compat; arm64 -march baseline override; SQRDMLAH QRDMX guard; Adreno VK driver vendor; SIGILL-safe CNTFRQ read. All upstream candidates (see [`patches/series`](../patches/series)) |
 
 Update this table on every submodule bump. Every tagged release must state the exact
 pin + patch series it was built from.
