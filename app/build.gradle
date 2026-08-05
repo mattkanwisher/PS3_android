@@ -1,0 +1,38 @@
+plugins {
+    id 'com.android.application' version '9.0.0'
+}
+
+android {
+    namespace 'nu.hyperworks.chrysalis'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'nu.hyperworks.chrysalis'
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0-m2'
+
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        // libchrysalis.so is built by native/ (see ci/build-local.sh) and
+        // staged, stripped, into build-android/jniLibs by the bridge target.
+        main.jniLibs.srcDirs += '../build-android/jniLibs'
+    }
+
+    packagingOptions {
+        jniLibs {
+            // Already stripped by the bridge's POST_BUILD step.
+            keepDebugSymbols += '**/libchrysalis.so'
+        }
+    }
+}

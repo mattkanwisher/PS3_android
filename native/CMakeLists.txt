@@ -66,4 +66,4 @@ endif()
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../rpcs3" "${CMAKE_BINARY_DIR}/rpcs3")
 
 # ---- JNI bridge (M2): libchrysalis.so wrapping rpcs3_emu --------------------
-# add_subdirectory(bridge)
+add_subdirectory(bridge)
