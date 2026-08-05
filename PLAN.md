@@ -165,7 +165,7 @@ Two sides, both small because research confirmed the mechanism:
 
 **M0 — Scaffold (this commit).** Plan, license, attribution skeleton, repo rules.
 
-**M1 — Core builds for Android (the spike).** Submodule + patch harness; LLVM 22 NDK prebuilt job; `emucore` compiling against NDK without Qt; a headless test harness APK (no UI) that initializes the emu and boots a homebrew ELF, logcat output only. **Exit criteria / decision gate:** patch count and Qt-shim size are known → confirm "thin wrapper on upstream" vs fallback to RPCSX base. Estimate: the longest, riskiest milestone.
+**M1 — Core builds for Android (the spike).** ✅ **Core goal met 2026-08-05**: unmodified upstream `rpcs3_emu` (incl. PPU/SPU LLVM 22 recompilers and the AArch64 JIT backend) cross-compiles green for android-arm64 in CI, with a **5-patch series, all upstream candidates** (subproject CMake paths, cellMic WITHOUT_OPENAL, fmt noreturn-dtor for clang 18+, never-compiled Android Vulkan surface fix, VKOverlays missing include). Decision gate passed decisively: thin-wrapper-on-upstream confirmed; RPCSX fallback not needed. Remaining M1 tail (moved to M2): headless harness APK booting a homebrew ELF on-device.
 
 **M2 — Pixels and inputs.** Vulkan surface wired (`VK_KHR_android_surface`), Android pad handler, cubeb/AAudio audio; boots a commercial disc image from app-private storage on Odin 2/Thor (Turnip) — even at single-digit FPS. AdrenoTools driver loading.
 
