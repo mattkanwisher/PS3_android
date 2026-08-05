@@ -1,0 +1,173 @@
+--- a/rpcs3/Emu/RSX/VK/vkutils/device.cpp
++++ b/rpcs3/Emu/RSX/VK/vkutils/device.cpp
+@@ -1,7 +1,9 @@
+ #include "device.h"
+ #include "instance.h"
+ #include "util/logs.hpp"
++#include "util/sysinfo.hpp"
+ #include "Emu/system_config.h"
++#include <algorithm>
+ #include <vulkan/vulkan_core.h>
+ #ifdef __APPLE__
+ #include <vulkan/vulkan_beta.h>
+@@ -853,7 +855,35 @@
+ 
+ 		memory_map = vk::get_memory_mapping(pdev);
+ 		m_formats_support = vk::get_optimal_tiling_supported_formats(pdev);
++
++		// Useful for debugging different VRAM configurations.
++		// NOTE: This has to be settled before the allocator is created — it reads
++		// the budget back out of the memory mapping to bound its heaps.
++		u64 vram_allocation_limit = g_cfg.video.vk.vram_allocation_limit * 0x100000ull;
++
++#ifdef __ANDROID__
++		// Unified memory: the driver reports the whole of system RAM as a
++		// device-local heap, but that is not a budget we can spend. Every
++		// eviction heuristic keys off device_local_total_bytes — the texture
++		// and surface caches size their quotas from it, and the resource
++		// manager treats anything under half of it as no pressure at all — so
++		// an 11 GB "VRAM" figure means nothing is ever reclaimed and the
++		// kernel OOM killer reaps the process instead. GPU allocations do not
++		// show up in RSS, so lmkd never sees it coming either.
++		//
++		// Keep a quarter of physical RAM, leaving the rest for the emulator's
++		// own CPU-side allocations and for Android itself.
++		if (const u64 total_ram = utils::get_total_memory())
++		{
++			const u64 uma_budget = std::clamp<u64>(total_ram / 4, 512ull * 0x100000, 2048ull * 0x100000);
++			vram_allocation_limit = std::min(vram_allocation_limit, uma_budget);
++			rsx_log.notice("Unified memory: capping the VRAM budget at %lluM of %lluM total RAM",
++				vram_allocation_limit / 0x100000, total_ram / 0x100000);
++		}
++#endif
+ 
++		memory_map.device_local_total_bytes = std::min(memory_map.device_local_total_bytes, vram_allocation_limit);
++
+ 		if (g_cfg.video.disable_vulkan_mem_allocator)
+ 		{
+ 			m_allocator = std::make_unique<vk::mem_allocator_vk>(*this, pdev);
+@@ -862,10 +892,6 @@
+ 		{
+ 			m_allocator = std::make_unique<vk::mem_allocator_vma>(*this, pdev, pdev);
+ 		}
+-
+-		// Useful for debugging different VRAM configurations
+-		const u64 vram_allocation_limit = g_cfg.video.vk.vram_allocation_limit * 0x100000ull;
+-		memory_map.device_local_total_bytes = std::min(memory_map.device_local_total_bytes, vram_allocation_limit);
+ 	}
+ 
+ 	void render_device::destroy()
+--- a/rpcs3/Emu/RSX/VK/vkutils/memory.cpp
++++ b/rpcs3/Emu/RSX/VK/vkutils/memory.cpp
+@@ -179,20 +179,30 @@
+ 		allocatorInfo.instance = inst;
+ 		allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+ 
++		// The device has already settled the budget (the config limit, further
++		// capped on unified-memory systems where the reported heap is all of RAM).
+ 		std::vector<VkDeviceSize> heap_limits;
+-		const auto vram_allocation_limit = g_cfg.video.vk.vram_allocation_limit * 0x100000ull;
+-		if (vram_allocation_limit < dev.get_memory_mapping().device_local_total_bytes)
+-		{
+-			VkPhysicalDeviceMemoryProperties memory_properties;
+-			vkGetPhysicalDeviceMemoryProperties(pdev, &memory_properties);
+-			for (u32 i = 0; i < memory_properties.memoryHeapCount; ++i)
+-			{
+-				const u64 max_sz = (memory_properties.memoryHeaps[i].flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+-					? vram_allocation_limit
+-					: VK_WHOLE_SIZE;
++		const auto vram_allocation_limit = dev.get_memory_mapping().device_local_total_bytes;
+ 
+-				heap_limits.push_back(max_sz);
++		VkPhysicalDeviceMemoryProperties memory_properties;
++		vkGetPhysicalDeviceMemoryProperties(pdev, &memory_properties);
++
++		bool heap_is_capped = false;
++		for (u32 i = 0; i < memory_properties.memoryHeapCount; ++i)
++		{
++			const auto& heap = memory_properties.memoryHeaps[i];
++			if (!(heap.flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT))
++			{
++				heap_limits.push_back(VK_WHOLE_SIZE);
++				continue;
+ 			}
++
++			heap_limits.push_back(vram_allocation_limit);
++			heap_is_capped |= (heap.size > vram_allocation_limit);
++		}
++
++		if (heap_is_capped)
++		{
+ 			allocatorInfo.pHeapSizeLimit = heap_limits.data();
+ 		}
+ 
+--- a/rpcs3/Emu/RSX/VK/vkutils/descriptors.h
++++ b/rpcs3/Emu/RSX/VK/vkutils/descriptors.h
+@@ -87,7 +87,14 @@
+ 
+ 		shared_mutex m_subpool_lock;
+ 
++#ifdef __ANDROID__
++		// Descriptor sets are real GPU memory on Adreno. Large subpools mean one
++		// bulk vkAllocateDescriptorSets per subpool and far fewer pool resets,
++		// keeping the driver's deferred-free backlog small.
++		static constexpr size_t max_cache_size = 512;
++#else
+ 		static constexpr size_t max_cache_size = 64;
++#endif
+ 		VkDescriptorSetLayout m_cached_layout = VK_NULL_HANDLE;
+ 		rsx::simple_array<VkDescriptorSet> m_descriptor_set_cache;
+ 		rsx::simple_array<VkDescriptorSetLayout> m_allocation_request_cache;
+--- a/rpcs3/Emu/RSX/VK/vkutils/commands.cpp
++++ b/rpcs3/Emu/RSX/VK/vkutils/commands.cpp
+@@ -72,8 +72,15 @@
+ 
+ 	void command_buffer::reset()
+ 	{
++#ifdef __ANDROID__
++		// Return the retained indirect-buffer memory to the pool. Adreno backs
++		// command buffers with GPU memory; without this flag every buffer in the
++		// ring keeps its high-water allocation forever.
++		CHECK_RESULT(vkResetCommandBuffer(commands, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT));
++#else
+ 		// Do the driver reset
+ 		CHECK_RESULT(vkResetCommandBuffer(commands, 0));
++#endif
+ 	}
+ 
+ 	void command_buffer::clear_state_cache()
+--- a/rpcs3/Emu/RSX/VK/VKProgramPipeline.cpp
++++ b/rpcs3/Emu/RSX/VK/VKProgramPipeline.cpp
+@@ -710,7 +710,14 @@
+ 		void descriptor_table_t::create_descriptor_pool()
+ 		{
+ 			m_descriptor_pool = std::make_unique<descriptor_pool>();
++#ifdef __ANDROID__
++			// Large subpools: descriptor churn is ~200+ sets per frame per program
++			// during real scenes, and every subpool cycle costs GPU memory that the
++			// Adreno driver frees lazily. 512-set subpools cut the cycle rate ~32x.
++			m_descriptor_pool->create(*vk::g_render_device, m_descriptor_pool_sizes, 512u, 4096u);
++#else
+ 			m_descriptor_pool->create(*vk::g_render_device, m_descriptor_pool_sizes, 16u, 4096u);
++#endif
+ 		}
+ 
+ 		void descriptor_table_t::validate() const
+--- a/rpcs3/Emu/RSX/VK/VKGSRenderTypes.hpp
++++ b/rpcs3/Emu/RSX/VK/VKGSRenderTypes.hpp
+@@ -22,7 +22,15 @@
+ #define VK_FRAGMENT_CONSTANTS_BUFFER_SIZE_M 16
+ #define VK_INDEX_RING_BUFFER_SIZE_M 16
+ 
++#ifdef __ANDROID__
++// Command buffers cost GPU memory on Adreno: each one's pool retains its
++// high-water indirect-buffer allocation (0.7-5MB after a heavy scene). A
++// 512-deep ring rotates through enough of them to pin gigabytes; 64 is still
++// far deeper than the fence latency needs.
++#define VK_MAX_ASYNC_CB_COUNT 64
++#else
+ #define VK_MAX_ASYNC_CB_COUNT 512
++#endif
+ 
+ #define FRAME_PRESENT_TIMEOUT 10000000ull // 10 seconds
+ #define GENERAL_WAIT_TIMEOUT  2000000ull  // 2 seconds

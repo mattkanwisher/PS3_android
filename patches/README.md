@@ -78,3 +78,22 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
     blocks as readonly storage buffers when the extension is missing
     (hardware-verified on AYN Thor / Adreno 740). Upstream-status:
     candidate.
+12. `0012-pad-thread-android-handler-hook.patch` — pad_thread's Android
+    branches short-circuit handler creation, so an embedder-provided
+    pad handler (the JNI bridge's) was never wired in; hook it into
+    both `#ifdef ANDROID` paths. Upstream-status: not applicable.
+13. `0013-cubeb-default-device-fallback.patch` — cubeb's AAudio/OpenSL
+    backends do not support device enumeration, so audio init failed;
+    fall back to the default output device. Upstream-status: candidate.
+14. `0014-vk-adreno-gpu-memory-management.patch` — on unified-memory
+    Android devices the driver reports all of system RAM as VRAM, so
+    no eviction heuristic ever fired, and Adreno backs command buffers
+    and descriptor sets with GPU memory that is invisible to the
+    process's RSS: a 512-deep command-buffer ring pinned 0.7–5 MB per
+    buffer of retained indirect-buffer memory (gigabytes across a heavy
+    scene) until the kernel OOM killer took the process. Cap the VRAM
+    budget at a quarter of RAM, shrink the ring to 64 on Android, reset
+    command buffers with `RELEASE_RESOURCES`, and use larger descriptor
+    subpools to cut pool churn (hardware-verified on AYN Thor / Adreno
+    740: GPU memory now plateaus instead of climbing ~300 MB/s).
+    Upstream-status: candidate (Android parts).
