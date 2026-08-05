@@ -20,3 +20,4 @@ build-android/
 # Misc
 .DS_Store
 *.log
+app/src/main/jniLibs/
