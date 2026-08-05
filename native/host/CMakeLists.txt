@@ -28,6 +28,10 @@ set(ANDROID_NATIVE_API_LEVEL 29)
 # gates forward declarations in Emu/RSX/display.h (no X11 linkage in emucore).
 add_compile_definitions(HAVE_X11)
 
+# RtMidi keys its Android backend on the raw ANDROID variable; neutralize it
+# inside that subproject only (see rtmidi-host-fixup.cmake).
+set(CMAKE_PROJECT_RtMidi_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/rtmidi-host-fixup.cmake")
+
 set(USE_NATIVE_INSTRUCTIONS OFF CACHE BOOL "" FORCE)
 set(USE_VULKAN OFF CACHE BOOL "" FORCE)      # boot tests run the Null renderer
 set(USE_SDL OFF CACHE BOOL "" FORCE)
