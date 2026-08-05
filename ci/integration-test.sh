@@ -21,6 +21,21 @@ TIMEOUT_S=300
 
 adb wait-for-device
 
+# Full crash forensics: the dedicated crash log buffer holds the complete
+# tombstone backtrace; google_apis (non-playstore) images also allow adb root,
+# which lets us read /data/tombstones for the register/mapping dump.
+dump_crash() {
+    echo "== crash buffer (full):"
+    adb logcat -b crash -d || true
+    if adb root >/dev/null 2>&1; then
+        adb wait-for-device
+        for t in $(adb shell ls /data/tombstones/ 2>/dev/null); do
+            echo "== tombstone $t:"
+            adb shell cat "/data/tombstones/$t" || true
+        done
+    fi
+}
+
 echo "== device ABIs: $(adb shell getprop ro.product.cpu.abilist)"
 echo "== installing $APK"
 adb install -r "$APK"
@@ -48,7 +63,8 @@ done
 if [ "$started" != 1 ]; then
     echo "FAIL: app process did not start; crash context:"
     adb logcat -d > logcat.txt || true
-    grep -E "AndroidRuntime|FATAL|DEBUG   :|SIGSEGV|SIGABRT|backtrace|cellstation|CellStation|linker" logcat.txt | tail -80 || true
+    grep -E "AndroidRuntime|FATAL|DEBUG   :|SIGSEGV|SIGABRT|backtrace|cellstation|CellStation|linker" logcat.txt | grep -v AppsFilter | tail -80 || true
+    dump_crash
     exit 1
 fi
 
@@ -67,7 +83,9 @@ while [ "$SECONDS" -lt "$deadline" ]; do
         echo "FAIL: core rejected the payload"
         break
     fi
-    if grep -E "FATAL EXCEPTION|Fatal signal" logcat.txt | grep -q "$PKG"; then
+    # NB: "Fatal signal" lines carry the kernel-truncated 15-char comm
+    # ("rks.cellstation"), never the full package name.
+    if grep -E "FATAL EXCEPTION|Fatal signal" logcat.txt | grep -qi "cellstation"; then
         echo "FAIL: app process crashed"
         break
     fi
@@ -83,9 +101,10 @@ done
 
 adb logcat -d > logcat.txt 2>/dev/null || true
 echo "== last relevant logcat lines:"
-grep -E "CellStation|CELLSTATION|RPCS3|cellstation" logcat.txt | tail -60 || true
+grep -E "CellStation|CELLSTATION|RPCS3|cellstation" logcat.txt | grep -v AppsFilter | tail -60 || true
 
 if [ "$verdict" != 0 ] && [ "$boot_ok$rsx_ok" != 11 ]; then
     echo "RESULT: FAIL (boot_ok=$boot_ok rsx_ok=$rsx_ok)"
+    dump_crash
 fi
 exit "$verdict"
