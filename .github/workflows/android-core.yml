@@ -378,12 +378,18 @@ jobs:
 
           CellStation is an unofficial Android port of RPCS3 (https://github.com/RPCS3/rpcs3, GPL-2.0), not affiliated with or supported by the RPCS3 team — do not report issues there. No firmware, BIOS, or game content is included or supported.
           EOF
-          # Rolling release: recreate so the tag tracks this commit and the
-          # assets/notes never go stale.
-          gh release delete nightly --yes --cleanup-tag || true
+          # Rolling release. The tag is moved with a plain git push and the
+          # release is created against the existing tag: creating refs through
+          # the releases API gets 403 "Resource not accessible by integration"
+          # under tag rules, while git tag pushes and tag-backed release
+          # creation both work.
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com \
+            tag -f nightly "$GITHUB_SHA"
+          git push --force origin refs/tags/nightly
+          gh release delete nightly --yes || true
           gh release create nightly \
             --prerelease \
-            --target "$GITHUB_SHA" \
+            --verify-tag \
             --title "Nightly (master @ ${short})" \
             --notes-file notes.md \
             dist/CellStation-nightly.apk
