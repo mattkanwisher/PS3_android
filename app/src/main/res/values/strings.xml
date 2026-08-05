@@ -8,7 +8,9 @@
     <string name="firmware_version">Firmware installed: %1$s</string>
     <string name="no_firmware">No PS3 firmware installed. Install a PS3UPDAT.PUP first.</string>
     <string name="games_hint">Games (drop files into Android/data/nu.hyperworks.cellstation/files/games/):</string>
-    <string name="no_games">No games found in\n%1$s</string>
+    <string name="no_games">No games found. Put disc images (.iso), game folders (with PS3_GAME/USRDIR/EBOOT.BIN) or homebrew (.elf/.self) in any of:\n%1$s</string>
     <string name="no_boot_path">No boot path provided.</string>
     <string name="boot_failed">Boot failed (code %1$d)</string>
+    <string name="storage_needed">Storage access is required to find games on this device.</string>
+    <string name="grant_storage">Grant storage access</string>
 </resources>

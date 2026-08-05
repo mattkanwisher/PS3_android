@@ -1,6 +1,10 @@
 package nu.hyperworks.cellstation
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
@@ -90,26 +94,55 @@ class MainActivity : AppCompatActivity() {
         refreshGames()
     }
 
+    private fun hasStorageAccess(): Boolean =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()
+
+    private fun requestStorageAccess() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+        runCatching {
+            startActivity(
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    .setData(Uri.parse("package:$packageName"))
+            )
+        }.onFailure {
+            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+        }
+    }
+
     private fun refreshGames() {
         gameList.removeAllViews()
-        val gamesDir = getExternalFilesDir("games") ?: return
-        gamesDir.mkdirs()
-        val entries = gamesDir.listFiles()?.sortedBy { it.name } ?: emptyList()
-        if (entries.isEmpty()) {
-            gameList.addView(TextView(this).apply { text = getString(R.string.no_games, gamesDir.absolutePath) })
+
+        if (!hasStorageAccess()) {
+            gameList.addView(TextView(this).apply { text = getString(R.string.storage_needed) })
+            gameList.addView(Button(this).apply {
+                text = getString(R.string.grant_storage)
+                setOnClickListener { requestStorageAccess() }
+            })
             return
         }
+
+        // App-external dir stays supported so sideloaded homebrew keeps working.
+        val appDir = getExternalFilesDir("games")?.also { it.mkdirs() }
+        val entries = GameLibrary.scan(listOfNotNull(appDir))
+
+        if (entries.isEmpty()) {
+            val roots = GameLibrary.searchRoots().joinToString("\n") { it.absolutePath }
+            gameList.addView(TextView(this).apply { text = getString(R.string.no_games, roots) })
+            return
+        }
+
         for (entry in entries) {
             gameList.addView(Button(this).apply {
-                text = entry.name
+                text = "${entry.title}  (${GameLibrary.humanSize(entry.sizeBytes)})"
                 setOnClickListener {
                     startActivity(Intent(this@MainActivity, EmulationActivity::class.java).apply {
                         action = EmulationActivity.ACTION_EMULATE
-                        putExtra(EmulationActivity.EXTRA_BOOT_PATH, entry.absolutePath)
+                        putExtra(EmulationActivity.EXTRA_BOOT_PATH, entry.bootPath)
                     })
                 }
             })
         }
+
         if (EmuBridge.firmwareVersion().isEmpty()) {
             Toast.makeText(this, R.string.no_firmware, Toast.LENGTH_LONG).show()
         }
