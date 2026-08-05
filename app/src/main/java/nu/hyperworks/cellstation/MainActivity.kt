@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -72,6 +73,24 @@ class MainActivity : AppCompatActivity() {
         root.addView(Button(this).apply {
             text = getString(R.string.install_firmware)
             setOnClickListener { pickPup.launch(arrayOf("*/*")) }
+        })
+
+        root.addView(TextView(this).apply {
+            text = getString(R.string.display_settings)
+            setPadding(0, 32, 0, 0)
+        })
+
+        root.addView(CheckBox(this).apply {
+            text = getString(R.string.stretch_to_display)
+            isChecked = EmuBridge.stretchToDisplayArea()
+            setOnCheckedChangeListener { _, checked ->
+                EmuBridge.setStretchToDisplayArea(checked, persist = true)
+            }
+        })
+
+        root.addView(TextView(this).apply {
+            text = getString(R.string.stretch_to_display_hint)
+            textSize = 12f
         })
 
         root.addView(TextView(this).apply {

@@ -7,6 +7,9 @@
     <string name="firmware_install_failed">Firmware installation failed — see logcat.</string>
     <string name="firmware_version">Firmware installed: %1$s</string>
     <string name="no_firmware">No PS3 firmware installed. Install a PS3UPDAT.PUP first.</string>
+    <string name="display_settings">Display</string>
+    <string name="stretch_to_display">Stretch to fill the screen</string>
+    <string name="stretch_to_display_hint">Off (default): the game\'s own aspect ratio is kept, with black bars. On: the image is stretched to fill the display.</string>
     <string name="games_hint">Games (drop files into Android/data/nu.hyperworks.cellstation/files/games/):</string>
     <string name="no_games">No games found in\n%1$s</string>
     <string name="no_boot_path">No boot path provided.</string>

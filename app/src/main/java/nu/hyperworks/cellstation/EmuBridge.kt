@@ -29,6 +29,16 @@ object EmuBridge {
     /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */
     external fun boot(path: String): Int
 
+    /** Persisted "Stretch To Display Area" (config.yml). False = aspect-correct pillarboxing. */
+    external fun stretchToDisplayArea(): Boolean
+
+    /**
+     * Stretches the emulated output to fill the display instead of honoring the
+     * game's aspect ratio. Applies immediately (the setting is re-read per frame);
+     * [persist] writes it to config.yml, otherwise it lasts for this boot only.
+     */
+    external fun setStretchToDisplayArea(enabled: Boolean, persist: Boolean)
+
     external fun surfaceEvent(surface: Surface?, event: Int): Boolean
 
     external fun kill()

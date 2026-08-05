@@ -96,6 +96,9 @@ void qt_events_aware_op(int repeat_duration_ms, std::function<bool()> wrapped_op
 	}
 }
 
+// Defaults cached by Emu.Init() (Emu/System.cpp), as used by rpcs3qt.
+extern std::string g_cfg_defaults;
+
 // Defined in Utilities/File.cpp for the Android embedder to fill in.
 extern std::string g_android_executable_dir;
 extern std::string g_android_config_dir;
@@ -431,6 +434,45 @@ namespace
 		Emu.SetCallbacks(std::move(callbacks));
 	}
 
+	// ---- global config (config.yml) ----------------------------------------
+	// Settings the app exposes are read-modify-written on a scratch cfg_root
+	// (upstream does the same in rpcs3qt/emu_settings.cpp) instead of on g_cfg:
+	// the live config is reset by Emu.Init(), reloaded from disk by every
+	// Emu.Load(), and read by the RSX thread each frame — so editing it in
+	// place would either be silently discarded or write a defaults-derived
+	// file over the user's config.yml.
+	std::string global_config_path()
+	{
+		return fs::get_config_dir(true) + "config.yml";
+	}
+
+	std::unique_ptr<cfg_root> load_global_config()
+	{
+		auto cfg = std::make_unique<cfg_root>();
+
+		// Emu.Init() caches the defaults *after* picking the default renderer;
+		// start from those so keys missing from the file keep that choice.
+		if (!g_cfg_defaults.empty())
+		{
+			cfg->from_string(g_cfg_defaults);
+		}
+
+		if (const fs::file file{global_config_path()})
+		{
+			if (!cfg->from_string(file.to_string()))
+			{
+				cellstation_log.error("Failed to parse %s, falling back to defaults", global_config_path());
+			}
+		}
+
+		return cfg;
+	}
+
+	void save_global_config(const cfg_root& cfg)
+	{
+		Emulator::SaveSettings(cfg.to_string(), {});
+	}
+
 	// Lean port of main_window::HandlePupInstallation (no dialogs/progress UI).
 	bool install_firmware(const std::string& path)
 	{
@@ -605,17 +647,20 @@ JNIEXPORT jint JNICALL Java_nu_hyperworks_cellstation_EmuBridge_boot(JNIEnv* env
 
 		const bool no_fw = utils::get_firmware_version().empty();
 
-		if (no_fw && g_cfg.core.libraries_control.get_set() != hle_all)
+		auto cfg = load_global_config();
+		const bool is_hle_all = cfg->core.libraries_control.get_set() == hle_all;
+
+		if (no_fw && !is_hle_all)
 		{
 			cellstation_log.notice("No firmware installed: forcing HLE firmware modules for homebrew boot");
-			g_cfg.core.libraries_control.set_set(std::move(hle_all));
-			Emulator::SaveSettings(g_cfg.to_string(), {});
+			cfg->core.libraries_control.set_set(std::move(hle_all));
+			save_global_config(*cfg);
 		}
-		else if (!no_fw && g_cfg.core.libraries_control.get_set() == hle_all)
+		else if (!no_fw && is_hle_all)
 		{
 			cellstation_log.notice("Firmware present: restoring default firmware library mode");
-			g_cfg.core.libraries_control.set_set({});
-			Emulator::SaveSettings(g_cfg.to_string(), {});
+			cfg->core.libraries_control.set_set({});
+			save_global_config(*cfg);
 		}
 	}
 
@@ -640,6 +685,30 @@ JNIEXPORT jint JNICALL Java_nu_hyperworks_cellstation_EmuBridge_boot(JNIEnv* env
 		cellstation_log.success("Boot OK: %s", path);
 	}
 	return static_cast<jint>(result);
+}
+
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_stretchToDisplayArea(JNIEnv*, jclass)
+{
+	return load_global_config()->video.stretch_to_display_area.get() ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT void JNICALL Java_nu_hyperworks_cellstation_EmuBridge_setStretchToDisplayArea(JNIEnv*, jclass, jboolean enabled, jboolean persist)
+{
+	const bool value = enabled == JNI_TRUE;
+
+	if (persist == JNI_TRUE)
+	{
+		auto cfg = load_global_config();
+		cfg->video.stretch_to_display_area.set(value);
+		save_global_config(*cfg);
+	}
+
+	// "Stretch To Display Area" is a dynamic setting — VK/GLPresent re-read it
+	// on every flip — so assigning it here applies mid-game, and lets a
+	// per-launch override take effect without touching the persisted value.
+	g_cfg.video.stretch_to_display_area.set(value);
+
+	cellstation_log.notice("Stretch to display area: %s (persisted: %s)", value, persist == JNI_TRUE);
 }
 
 JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_surfaceEvent(JNIEnv* env, jclass, jobject surface, jint event)
