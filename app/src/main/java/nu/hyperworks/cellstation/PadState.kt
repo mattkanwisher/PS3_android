@@ -14,7 +14,7 @@ import kotlin.math.roundToInt
 class PadState {
 
     // Keep in sync with android_pad_button (native/bridge/android_pad_handler.h)
-    private object Btn {
+    object Btn {
         const val CROSS = 1; const val CIRCLE = 2; const val SQUARE = 3; const val TRIANGLE = 4
         const val L1 = 5; const val R1 = 6; const val L3 = 7; const val R3 = 8
         const val START = 9; const val SELECT = 10; const val PS = 11
@@ -29,6 +29,18 @@ class PadState {
 
     private fun set(index: Int, value: Int) {
         values[index] = value.coerceIn(0, 255).toByte()
+    }
+
+    /** Used by the on-screen overlay; [index] is one of [Btn]. */
+    fun setVirtual(index: Int, pressed: Boolean) {
+        set(index, if (pressed) 255 else 0)
+        push()
+    }
+
+    /** Clears every input, e.g. when the overlay is hidden mid-press. */
+    fun releaseAll() {
+        values.fill(0)
+        push()
     }
 
     private fun keyIndex(keyCode: Int): Int = when (keyCode) {

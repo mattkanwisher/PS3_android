@@ -5,6 +5,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.widget.FrameLayout
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -28,6 +29,8 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     private var booted = false
     private val pad = PadState()
+    private var overlay: TouchOverlayView? = null
+    private var overlayMode = Settings.TouchOverlayMode.AUTO
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +38,15 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         val surfaceView = SurfaceView(this)
-        setContentView(surfaceView)
+        val frame = FrameLayout(this)
+        frame.addView(surfaceView)
+
+        overlayMode = Settings.touchOverlayMode(this)
+        if (overlayMode != Settings.TouchOverlayMode.NEVER) {
+            overlay = TouchOverlayView(this, pad).also { frame.addView(it) }
+        }
+
+        setContentView(frame)
         surfaceView.holder.addCallback(this)
 
         WindowInsetsControllerCompat(window, surfaceView).apply {
@@ -81,13 +92,28 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
     // so forward them to the native pad handler and consume them. Non-gamepad
     // keys (e.g. volume, back on a phone) fall through to the default handling.
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
-        pad.onKey(event) || super.onKeyDown(keyCode, event)
+        handledByPad(pad.onKey(event)) || super.onKeyDown(keyCode, event)
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
-        pad.onKey(event) || super.onKeyUp(keyCode, event)
+        handledByPad(pad.onKey(event)) || super.onKeyUp(keyCode, event)
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean =
-        pad.onMotion(event) || super.onGenericMotionEvent(event)
+        handledByPad(pad.onMotion(event)) || super.onGenericMotionEvent(event)
+
+    /**
+     * In AUTO mode the on-screen controller is redundant once a real pad is in
+     * use, so the first physical input retires it for this session.
+     */
+    private fun handledByPad(consumed: Boolean): Boolean {
+        if (consumed && overlayMode == Settings.TouchOverlayMode.AUTO) {
+            overlay?.let { view ->
+                overlay = null
+                view.releaseAll()
+                (view.parent as? android.view.ViewGroup)?.removeView(view)
+            }
+        }
+        return consumed
+    }
 
     override fun onResume() {
         super.onResume()

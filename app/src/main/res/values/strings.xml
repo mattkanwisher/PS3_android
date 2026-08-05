@@ -13,4 +13,8 @@
     <string name="boot_failed">Boot failed (code %1$d)</string>
     <string name="storage_needed">Storage access is required to find games on this device.</string>
     <string name="grant_storage">Grant storage access</string>
+    <string name="touch_overlay">On-screen controller: %1$s</string>
+    <string name="touch_auto">Auto (hides when a gamepad is used)</string>
+    <string name="touch_always">Always on</string>
+    <string name="touch_never">Off</string>
 </resources>

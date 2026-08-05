@@ -4,7 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.Settings
+import android.provider.Settings as AndroidSettings
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
@@ -78,6 +78,21 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { pickPup.launch(arrayOf("*/*")) }
         })
 
+        root.addView(Button(this).apply {
+            text = touchOverlayLabel()
+            setOnClickListener {
+                // Cycle Auto -> Always -> Never; Auto hides the overlay as soon
+                // as a physical controller is used.
+                val next = when (Settings.touchOverlayMode(this@MainActivity)) {
+                    Settings.TouchOverlayMode.AUTO -> Settings.TouchOverlayMode.ALWAYS
+                    Settings.TouchOverlayMode.ALWAYS -> Settings.TouchOverlayMode.NEVER
+                    Settings.TouchOverlayMode.NEVER -> Settings.TouchOverlayMode.AUTO
+                }
+                Settings.setTouchOverlayMode(this@MainActivity, next)
+                text = touchOverlayLabel()
+            }
+        })
+
         root.addView(TextView(this).apply {
             text = getString(R.string.games_hint)
             setPadding(0, 32, 0, 8)
@@ -87,6 +102,15 @@ class MainActivity : AppCompatActivity() {
         root.addView(gameList)
 
         setContentView(ScrollView(this).apply { addView(root) })
+    }
+
+    private fun touchOverlayLabel(): String {
+        val mode = when (Settings.touchOverlayMode(this)) {
+            Settings.TouchOverlayMode.AUTO -> getString(R.string.touch_auto)
+            Settings.TouchOverlayMode.ALWAYS -> getString(R.string.touch_always)
+            Settings.TouchOverlayMode.NEVER -> getString(R.string.touch_never)
+        }
+        return getString(R.string.touch_overlay, mode)
     }
 
     override fun onResume() {
@@ -101,11 +125,11 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         runCatching {
             startActivity(
-                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                Intent(AndroidSettings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
                     .setData(Uri.parse("package:$packageName"))
             )
         }.onFailure {
-            startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+            startActivity(Intent(AndroidSettings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
         }
     }
 
