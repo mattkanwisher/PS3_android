@@ -55,8 +55,21 @@
 #include <condition_variable>
 
 #include "Emu/Io/pad_config.h"
+#include "Input/mouse_gyro_handler.h"
 
 LOG_CHANNEL(cellstation_log, "CELLSTATION");
+
+// mouse_gyro_handler's implementation lives in a Qt translation unit upstream
+// (QEvent-driven desktop feature). pad_thread only needs these two members;
+// mouse-based gyro stays inert on Android.
+void mouse_gyro_handler::set_enabled(bool enabled)
+{
+	m_enabled = enabled;
+}
+
+void mouse_gyro_handler::apply_gyro(const std::shared_ptr<Pad>&)
+{
+}
 
 // Defined in Utilities/File.cpp for the Android embedder to fill in.
 extern std::string g_android_executable_dir;
