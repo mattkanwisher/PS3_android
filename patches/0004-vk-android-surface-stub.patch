@@ -1,0 +1,60 @@
+Subject: vk: fix Android WSI surface creation stub
+Why: swapchain_android.hpp declares a VkWin32SurfaceCreateInfoKHR (copy-paste
+     from the Win32 variant) and calls vkCreateAndroidSurfaceKHR with
+     this->m_instance inside a free function, so the file never compiled on
+     Android. Use VkAndroidSurfaceCreateInfoKHR and the vk_instance parameter.
+Upstream-status: candidate
+
+diff --git a/rpcs3/Emu/RSX/VK/vkutils/swapchain_android.hpp b/rpcs3/Emu/RSX/VK/vkutils/swapchain_android.hpp
+index 9c59b87..12fe414 100644
+--- a/rpcs3/Emu/RSX/VK/vkutils/swapchain_android.hpp
++++ b/rpcs3/Emu/RSX/VK/vkutils/swapchain_android.hpp
+@@ -1,24 +1,24 @@
+-#pragma once
+-
+-#include "swapchain_core.h"
+-
+-namespace vk
+-{
+-#if defined(ANDROID)
+-	using swapchain_ANDROID = native_swapchain_base;
+-	using swapchain_NATIVE = swapchain_ANDROID;
+-
+-	[[maybe_unused]] static
+-	VkSurfaceKHR make_WSI_surface(VkInstance vk_instance, display_handle_t window_handle, WSI_config* /*config*/)
+-	{
+-		VkSurfaceKHR result = VK_NULL_HANDLE;
+-
+-		VkWin32SurfaceCreateInfoKHR createInfo = {};
+-		createInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+-		createInfo.window = std::get<ANativeWindow *>(window_handle);
+-
+-		CHECK_RESULT(vkCreateAndroidSurfaceKHR(this->m_instance, &createInfo, nullptr, &result));
+-		return result;
+-	}
+-#endif
+-}
++#pragma once
++
++#include "swapchain_core.h"
++
++namespace vk
++{
++#if defined(ANDROID)
++	using swapchain_ANDROID = native_swapchain_base;
++	using swapchain_NATIVE = swapchain_ANDROID;
++
++	[[maybe_unused]] static
++	VkSurfaceKHR make_WSI_surface(VkInstance vk_instance, display_handle_t window_handle, WSI_config* /*config*/)
++	{
++		VkSurfaceKHR result = VK_NULL_HANDLE;
++
++		VkAndroidSurfaceCreateInfoKHR createInfo = {};
++		createInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
++		createInfo.window = std::get<ANativeWindow *>(window_handle);
++
++		CHECK_RESULT(vkCreateAndroidSurfaceKHR(vk_instance, &createInfo, nullptr, &result));
++		return result;
++	}
++#endif
++}
