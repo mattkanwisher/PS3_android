@@ -293,3 +293,61 @@ jobs:
           name: integration-test-logcat
           path: logcat.txt
           if-no-files-found: ignore
+
+  # Rolling "nightly" pre-release: every master push whose full chain is green
+  # (both core lanes -> APKs -> emulator boot test) republishes the debug APKs
+  # under stable asset names, so the release page always links the newest
+  # build that provably boots homebrew.
+  release-nightly:
+    needs: [build-apk, build-apk-compat, integration-test]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: nightly-release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch APK (ship)
+        uses: actions/download-artifact@v4
+        with:
+          name: cellstation-debug-apk
+          path: dist/ship
+
+      - name: Fetch APK (compat)
+        uses: actions/download-artifact@v4
+        with:
+          name: cellstation-debug-apk-compat
+          path: dist/compat
+
+      - name: Publish rolling nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          mv dist/ship/CellStation-debug.apk dist/CellStation-debug.apk
+          mv dist/compat/CellStation-debug.apk dist/CellStation-debug-compat.apk
+          short=${GITHUB_SHA::7}
+          cat > notes.md <<EOF
+          Rolling debug build from master @ ${short} — every asset here booted PS3 homebrew in CI before publishing.
+
+          | Asset | Target |
+          |---|---|
+          | CellStation-debug.apk | arm64 devices, armv8.1+ (Snapdragon handhelds: AYN Odin, Thor, ...) |
+          | CellStation-debug-compat.apk | armv8.0 baseline (Android Studio emulator via arm64 translation) |
+
+          Build provenance: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          CellStation is an unofficial Android port of RPCS3 (https://github.com/RPCS3/rpcs3, GPL-2.0), not affiliated with or supported by the RPCS3 team — do not report issues there. No firmware, BIOS, or game content is included or supported. Debug builds: debug-signed and not performance-representative.
+          EOF
+          # Rolling release: recreate so the tag tracks this commit and the
+          # assets/notes never go stale.
+          gh release delete nightly --yes --cleanup-tag || true
+          gh release create nightly \
+            --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Nightly (master @ ${short})" \
+            --notes-file notes.md \
+            dist/CellStation-debug.apk dist/CellStation-debug-compat.apk
