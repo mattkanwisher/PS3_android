@@ -50,6 +50,30 @@ public class MainActivity extends Activity {
 
         NativeCore.init(getFilesDir().getAbsolutePath());
         refreshStatus("Core loaded.");
+
+        // Debug/frontend hook: install directly from a readable path, e.g.
+        // adb shell am start -n nu.hyperworks.chrysalis/.MainActivity \
+        //   --es pup_path /sdcard/Android/data/nu.hyperworks.chrysalis/files/PS3UPDAT.PUP
+        String pupPath = getIntent().getStringExtra("pup_path");
+        if (pupPath != null) {
+            refreshStatus("Installing firmware from " + pupPath + "… (see logcat, tag rpcs3)");
+            installFromFile(new File(pupPath), false);
+        }
+    }
+
+    private void installFromFile(File pup, boolean deleteAfter) {
+        new Thread(() -> {
+            long t0 = System.currentTimeMillis();
+            String error = NativeCore.installFirmware(pup.getAbsolutePath());
+            long dt = System.currentTimeMillis() - t0;
+            if (deleteAfter) {
+                //noinspection ResultOfMethodCallIgnored
+                pup.delete();
+            }
+            runOnUiThread(() -> refreshStatus(error == null || error.isEmpty()
+                    ? "Firmware installed successfully in " + dt + " ms."
+                    : "Firmware installation failed: " + error));
+        }, "fw-install").start();
     }
 
     private void refreshStatus(String headline) {
@@ -80,15 +104,7 @@ public class MainActivity extends Activity {
                 }
 
                 runOnUiThread(() -> refreshStatus("Installing firmware… (see logcat, tag rpcs3)"));
-                long t0 = System.currentTimeMillis();
-                String error = NativeCore.installFirmware(pup.getAbsolutePath());
-                long dt = System.currentTimeMillis() - t0;
-                //noinspection ResultOfMethodCallIgnored
-                pup.delete();
-
-                runOnUiThread(() -> refreshStatus(error == null || error.isEmpty()
-                        ? "Firmware installed successfully in " + dt + " ms."
-                        : "Firmware installation failed: " + error));
+                installFromFile(pup, true);
             } catch (Exception e) {
                 Log.e(TAG, "install failed", e);
                 runOnUiThread(() -> refreshStatus("Firmware installation failed: " + e));

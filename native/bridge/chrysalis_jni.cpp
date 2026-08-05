@@ -7,6 +7,7 @@
 #include "stdafx.h"
 
 #include "Crypto/unself.h"
+#include "Emu/System.h"
 #include "Emu/VFS.h"
 #include "Emu/vfs_config.h"
 #include "Loader/PUP.h"
@@ -22,6 +23,12 @@
 #include <string>
 
 LOG_CHANNEL(chrysalis_log, "CHRYSALIS");
+
+// Upstream's Android path hooks (Utilities/File.cpp): on ANDROID,
+// fs::get_config_dir/get_cache_dir/get_executable_dir return these verbatim.
+extern std::string g_android_executable_dir;
+extern std::string g_android_config_dir;
+extern std::string g_android_cache_dir;
 
 namespace
 {
@@ -181,12 +188,14 @@ JNIEXPORT void JNICALL Java_nu_hyperworks_chrysalis_NativeCore_init(JNIEnv* env,
 {
 	const std::string dir = to_std(env, data_dir);
 
-	// The core resolves all its paths from these (fs::get_config_dir & co
-	// cache lazily, so this must happen before any other core call).
-	setenv("HOME", dir.c_str(), 1);
-	setenv("XDG_CONFIG_HOME", (dir + "/config").c_str(), 1);
-	setenv("XDG_CACHE_HOME", (dir + "/cache").c_str(), 1);
-	setenv("XDG_DATA_HOME", (dir + "/data").c_str(), 1);
+	// The core resolves every path from these globals on Android; they must be
+	// set before any other core call. Trailing slash matters: the core appends
+	// names directly.
+	g_android_executable_dir = dir;
+	g_android_config_dir = dir + "/config/";
+	g_android_cache_dir = dir + "/cache/";
+	fs::create_path(g_android_config_dir);
+	fs::create_path(g_android_cache_dir);
 
 	static logcat_listener s_listener;
 	static bool s_added = false;
@@ -194,6 +203,10 @@ JNIEXPORT void JNICALL Java_nu_hyperworks_chrysalis_NativeCore_init(JNIEnv* env,
 	{
 		s_added = true;
 		logs::listener::add(&s_listener);
+
+		// Sets up config dirs and the global fixed-object manager; vfs::mount
+		// (and thus firmware installation) requires it (see Emu/VFS.cpp).
+		Emu.Init();
 	}
 
 	chrysalis_log.success("Chrysalis bridge initialized (data dir: %s)", dir);
