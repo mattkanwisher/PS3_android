@@ -1,0 +1,11 @@
+prefix=/usr/local
+libdir=/usr/local/lib@
+includedir=/usr/local/include@
+
+Name: libusb-1.0
+Description: C API for USB device access from Linux, Mac OS X and Windows userspace
+Version: 1.0.26
+Libs: -L${libdir} -lusb-1.0
+Libs.private: 
+Cflags: -I${includedir}/libusb-1.0
+
