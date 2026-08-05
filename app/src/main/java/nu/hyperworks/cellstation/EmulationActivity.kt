@@ -23,6 +23,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
     companion object {
         const val ACTION_EMULATE = "nu.hyperworks.cellstation.EMULATE"
         const val EXTRA_BOOT_PATH = "bootPath"
+        const val EXTRA_GAME_DIR = "gameDir"
     }
 
     private var booted = false
@@ -48,7 +49,9 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
         if (!booted) {
             booted = true
-            val path = intent.getStringExtra(EXTRA_BOOT_PATH) ?: intent.data?.path
+            // Accepts bootPath (path or URI), gameDir (folder-format), or a
+            // data URI from ACTION_VIEW — see docs/INTENTS.md.
+            val path = BootTarget.resolve(this, intent)
             if (path.isNullOrEmpty()) {
                 Toast.makeText(this, R.string.no_boot_path, Toast.LENGTH_LONG).show()
                 finish()
