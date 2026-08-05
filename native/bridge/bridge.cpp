@@ -589,6 +589,36 @@ JNIEXPORT jint JNICALL Java_nu_hyperworks_cellstation_EmuBridge_boot(JNIEnv* env
 {
 	const std::string path = jstr(env, jpath);
 
+	// Homebrew boots without installed PS3 firmware: force HLE for every
+	// firmware module so Emulator::Load's LLE check does not demand
+	// /dev_flash (mirrors native/host/main.cpp). Persisted via SaveSettings
+	// because Load() re-reads config.yml. Symmetric: we restore the default
+	// only if the config still equals exactly the set we wrote, so a user's
+	// hand-tuned library list is never touched.
+	{
+		extern const std::map<std::string_view, int> g_prx_list;
+		std::set<std::string> hle_all;
+		for (const auto& [name, flag] : g_prx_list)
+		{
+			hle_all.emplace(std::string(name) + ":hle");
+		}
+
+		const bool no_fw = utils::get_firmware_version().empty();
+
+		if (no_fw && g_cfg.core.libraries_control.get_set() != hle_all)
+		{
+			cellstation_log.notice("No firmware installed: forcing HLE firmware modules for homebrew boot");
+			g_cfg.core.libraries_control.set_set(std::move(hle_all));
+			Emulator::SaveSettings(g_cfg.to_string(), {});
+		}
+		else if (!no_fw && g_cfg.core.libraries_control.get_set() == hle_all)
+		{
+			cellstation_log.notice("Firmware present: restoring default firmware library mode");
+			g_cfg.core.libraries_control.set_set({});
+			Emulator::SaveSettings(g_cfg.to_string(), {});
+		}
+	}
+
 	atomic_t<u32> done = 0;
 	game_boot_result result = game_boot_result::generic_error;
 
