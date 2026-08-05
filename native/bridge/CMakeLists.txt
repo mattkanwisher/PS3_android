@@ -33,3 +33,8 @@ target_link_libraries(cellstation PRIVATE
     log
     nativewindow
 )
+
+# Localize symbols from the static deps (ffmpeg/LLVM/...): keeps their
+# PC-relative asm relocations valid inside a shared lib and exports only
+# the JNI surface.
+target_link_options(cellstation PRIVATE "-Wl,--exclude-libs,ALL")
