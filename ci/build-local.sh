@@ -13,14 +13,15 @@
 #   ANDROID_NDK_HOME  NDK root        (default: /opt/homebrew/share/android-ndk)
 #   FFMPEG_PREFIX     ffmpeg install  (default: $HOME/ffmpeg-android)
 #   BUILD_DIR         cmake build dir (default: build-android)
-#   FFMPEG_VER        ffmpeg tag      (default: n6.1.2, keep in sync with CI)
+#   FFMPEG_VER        ffmpeg tag      (default: n7.1.5, keep in sync with CI;
+#                     rpcs3 needs avcodec_get_supported_config(), FFmpeg >= 7.1)
 set -eu
 cd "$(dirname "$0")/.."
 
 NDK="${ANDROID_NDK_HOME:-/opt/homebrew/share/android-ndk}"
 FFMPEG_PREFIX="${FFMPEG_PREFIX:-$HOME/ffmpeg-android}"
 BUILD_DIR="${BUILD_DIR:-build-android}"
-FFMPEG_VER="${FFMPEG_VER:-n6.1.2}"
+FFMPEG_VER="${FFMPEG_VER:-n7.1.5}"
 
 case "$(uname -s)" in
     Darwin) HOST_TAG=darwin-x86_64; JOBS=$(sysctl -n hw.ncpu) ;;  # universal binaries, correct on arm64 too

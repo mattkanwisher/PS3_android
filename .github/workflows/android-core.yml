@@ -16,7 +16,8 @@ on:
       - '.github/workflows/android-core.yml'
 
 env:
-  FFMPEG_VER: n6.1.2
+  # rpcs3's media_utils.cpp needs avcodec_get_supported_config() (FFmpeg >= 7.1)
+  FFMPEG_VER: n7.1.5
 
 jobs:
   build-core:

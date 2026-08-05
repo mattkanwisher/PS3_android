@@ -1,0 +1,44 @@
+Subject: cellMic: guard remaining OpenAL usage for WITHOUT_OPENAL builds
+Why: 3rdparty/CMakeLists.txt defines WITHOUT_OPENAL=1 under ANDROID and most
+     of cellMic guards OpenAL usage accordingly, but cellMic.h includes alc.h
+     unconditionally and cellMic.cpp defines an unguarded fmt::alc_error
+     helper, so the Android build fails. Guard both; keep ALCdevice as an
+     opaque typedef in the header (only used as a pointer outside guards).
+Upstream-status: candidate
+
+diff --git a/rpcs3/Emu/Cell/Modules/cellMic.cpp b/rpcs3/Emu/Cell/Modules/cellMic.cpp
+index 0c58d2e..ba68199 100644
+--- a/rpcs3/Emu/Cell/Modules/cellMic.cpp
++++ b/rpcs3/Emu/Cell/Modules/cellMic.cpp
+@@ -74,6 +74,7 @@ void fmt_class_string<CellMicInErrorDsp>::format(std::string& out, u64 arg)
+ 	});
+ }
+ 
++#ifndef WITHOUT_OPENAL
+ namespace fmt
+ {
+ 	struct alc_error
+@@ -89,6 +90,7 @@ void fmt_class_string<fmt::alc_error>::format(std::string& out, u64 arg)
+ 	const fmt::alc_error& obj = get_object(arg);
+ 	fmt::append(out, "0x%x='%s'", obj.error, alcGetString(obj.device, obj.error));
+ }
++#endif
+ 
+ void mic_context::operator()()
+ {
+diff --git a/rpcs3/Emu/Cell/Modules/cellMic.h b/rpcs3/Emu/Cell/Modules/cellMic.h
+index a07cec2..3b906f5 100644
+--- a/rpcs3/Emu/Cell/Modules/cellMic.h
++++ b/rpcs3/Emu/Cell/Modules/cellMic.h
+@@ -3,7 +3,11 @@
+ #include "Utilities/Thread.h"
+ #include "Utilities/mutex.h"
+ 
++#ifndef WITHOUT_OPENAL
+ #include "alc.h"
++#else
++typedef struct ALCdevice ALCdevice; // opaque handle; only used as a pointer without OpenAL
++#endif
+ 
+ // Error Codes
+ enum CellMicInError : u32

@@ -1,3 +1,5 @@
 # Patch series applied to the rpcs3/ submodule, in order. One filename per line.
 # Empty for now — no divergence from upstream.
 0001-cmake-embedded-build-paths.patch
+0002-cellmic-without-openal.patch
+0003-aarch64-backend-llvm-gate.patch

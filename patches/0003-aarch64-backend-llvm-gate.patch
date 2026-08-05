@@ -1,0 +1,33 @@
+Subject: cmake: only build AArch64 JIT backend files when WITH_LLVM
+Why: AArch64ASM.cpp and AArch64JIT.cpp hard-require LLVM headers, but are
+     compiled on any arm64 host even with WITH_LLVM=OFF (the Android
+     interpreter bring-up config), breaking the build. Their only consumers
+     (PPUTranslator.cpp, SPULLVMRecompiler.cpp) are already LLVM-gated.
+     AArch64Common/AArch64Signal stay unconditional (used by sysinfo and
+     the signal handler).
+Upstream-status: candidate
+
+diff --git a/rpcs3/Emu/CMakeLists.txt b/rpcs3/Emu/CMakeLists.txt
+index 8293047..2242138 100644
+--- a/rpcs3/Emu/CMakeLists.txt
++++ b/rpcs3/Emu/CMakeLists.txt
+@@ -406,11 +406,17 @@ target_sources(rpcs3_emu PRIVATE
+ 
+ if(CMAKE_SYSTEM_PROCESSOR MATCHES "ARM64|arm64|aarch64")
+     target_sources(rpcs3_emu PRIVATE
+-        CPU/Backends/AArch64/AArch64ASM.cpp
+         CPU/Backends/AArch64/AArch64Common.cpp
+-        CPU/Backends/AArch64/AArch64JIT.cpp
+         CPU/Backends/AArch64/AArch64Signal.cpp
+     )
++    # The micro-assembler and JIT passes hard-require LLVM headers; their only
++    # consumers (PPUTranslator, SPULLVMRecompiler) are LLVM-gated as well.
++    if(WITH_LLVM)
++        target_sources(rpcs3_emu PRIVATE
++            CPU/Backends/AArch64/AArch64ASM.cpp
++            CPU/Backends/AArch64/AArch64JIT.cpp
++        )
++    endif()
+ endif()
+ 
+ 
