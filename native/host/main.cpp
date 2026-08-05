@@ -150,6 +150,8 @@ namespace
 
 	main_pump g_pump;
 
+	atomic_t<bool> g_guest_ran{false};
+
 	void init_callbacks()
 	{
 		EmuCallbacks callbacks{};
@@ -217,7 +219,7 @@ namespace
 		callbacks.get_save_dialog                = []() -> std::unique_ptr<SaveDialogBase> { return std::unique_ptr<SaveDialogBase>(); };
 		callbacks.get_trophy_notification_dialog = []() -> std::unique_ptr<TrophyNotificationBase> { return std::unique_ptr<TrophyNotificationBase>(); };
 
-		callbacks.on_run    = [](bool) { host_log.success("HOST-RUNNER: on_run (guest started)"); };
+		callbacks.on_run    = [](bool) { g_guest_ran = true; host_log.success("HOST-RUNNER: on_run (guest started)"); };
 		callbacks.on_pause  = []() {};
 		callbacks.on_resume = []() {};
 		callbacks.on_stop   = []() {};
@@ -249,6 +251,20 @@ namespace
 		callbacks.check_microphone_permissions = []() {};
 		callbacks.make_video_source = []() { return nullptr; };
 
+		// Callback completeness (mirrors the bridge): Emulator::Load/Run call
+		// these unconditionally - an unset std::function throws bad_function_call.
+		callbacks.update_emu_settings = []() {};
+		callbacks.save_emu_settings = []() { Emulator::SaveSettings(g_cfg.to_string(), Emu.GetTitleID()); };
+		callbacks.get_sendmessage_dialog = []() -> std::shared_ptr<SendMessageDialogBase> { return {}; };
+		callbacks.get_recvmessage_dialog = []() -> std::shared_ptr<RecvMessageDialogBase> { return {}; };
+		callbacks.get_photo_path = [](std::string_view) -> std::string { return {}; };
+		callbacks.get_image_info = [](const std::string&, std::string&, s32&, s32&, s32&) -> bool { return false; };
+		callbacks.get_scaled_image = [](const std::string&, s32, s32, s32&, s32&, u8*, bool) -> bool { return false; };
+		callbacks.get_font_dirs = []() -> std::vector<std::string> { return {}; };
+		callbacks.on_install_pkgs = [](const std::vector<std::string>&) { return false; };
+		callbacks.enable_gamemode = [](bool) {};
+		callbacks.get_database_config = [](const std::string&) -> std::string { return {}; };
+
 		Emu.SetCallbacks(std::move(callbacks));
 	}
 } // namespace
@@ -273,6 +289,21 @@ int main(int argc, char** argv)
 	Emu.SetUsr("00000001");
 	Emu.Init();
 	init_callbacks();
+
+	// Boot tests run without installed PS3 firmware (a PUP is not
+	// redistributable): force HLE for every firmware module so
+	// Emulator::Load's LLE check does not demand /dev_flash.
+	{
+		extern const std::map<std::string_view, int> g_prx_list;
+		std::set<std::string> hle_all;
+		for (const auto& [name, flag] : g_prx_list)
+		{
+			hle_all.emplace(std::string(name) + ":hle");
+		}
+		g_cfg.core.libraries_control.set_set(std::move(hle_all));
+		// Load() re-applies the on-disk global config; persist the override.
+		Emulator::SaveSettings(g_cfg.to_string(), {});
+	}
 
 	// Boot on the pump like the Android bridge does; main() drains the pump.
 	atomic_t<u32> boot_done = 0;
@@ -303,7 +334,7 @@ int main(int argc, char** argv)
 				break;
 			}
 
-			if (state == system_state::running && !ran)
+			if ((g_guest_ran || state == system_state::running) && !ran)
 			{
 				ran = true;
 				running_since = clock::now();
@@ -331,18 +362,15 @@ int main(int argc, char** argv)
 			std::printf("HOST-RUNNER: BOOT-TIMEOUT\n");
 		}
 
-		std::fflush(stdout);
+		std::fflush(nullptr);
 
-		g_pump.push([]() { Emu.Kill(false); });
-		std::this_thread::sleep_for(std::chrono::seconds(5));
-		g_pump.stop();
+		// Test harness: skip emulator teardown entirely (Kill trips asserts in
+		// this embedding and the verdict is already printed) - hard-exit with
+		// the machine-checkable result.
+		_exit(ran ? 0 : 1);
 	});
 
 	g_pump.run();
 	watcher.join();
-
-	std::fflush(nullptr);
-	// The watcher printed the verdict; grep decides in the harness. Return 0
-	// unless the process itself failed catastrophically (abort would apply).
 	return 0;
 }

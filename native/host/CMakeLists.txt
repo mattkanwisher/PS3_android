@@ -32,6 +32,16 @@ add_compile_definitions(HAVE_X11)
 # inside that subproject only (see rtmidi-host-fixup.cmake).
 set(CMAKE_PROJECT_RtMidi_INCLUDE "${CMAKE_CURRENT_SOURCE_DIR}/rtmidi-host-fixup.cmake")
 
+# Some 3rdparty scripts (absl via protobuf) pass the raw '-llog' linker flag
+# when the ANDROID variable is set. Provide an empty stub liblog.a on the
+# search path (__android_log_* is never referenced on the host - the
+# preprocessor macro stays undefined).
+file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/stublibs")
+if(NOT EXISTS "${CMAKE_BINARY_DIR}/stublibs/liblog.a")
+    execute_process(COMMAND "${CMAKE_AR}" cr "${CMAKE_BINARY_DIR}/stublibs/liblog.a")
+endif()
+link_directories("${CMAKE_BINARY_DIR}/stublibs")
+
 set(USE_NATIVE_INSTRUCTIONS OFF CACHE BOOL "" FORCE)
 set(USE_VULKAN OFF CACHE BOOL "" FORCE)      # boot tests run the Null renderer
 set(USE_SDL OFF CACHE BOOL "" FORCE)
@@ -65,7 +75,8 @@ foreach(lib avformat avcodec swscale swresample avutil)
     endif()
     target_link_libraries(3rdparty_ffmpeg INTERFACE "${HOST_FFMPEG_LIB_${lib}}")
 endforeach()
-target_link_libraries(3rdparty_ffmpeg INTERFACE z)
+# host ffmpeg's configure auto-enables bzlib/lzma when the dev packages exist
+target_link_libraries(3rdparty_ffmpeg INTERFACE z bz2 lzma)
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../rpcs3" "${CMAKE_BINARY_DIR}/rpcs3")
 
@@ -106,6 +117,10 @@ target_include_directories(cellstation-host-runner PRIVATE
 )
 
 target_compile_options(cellstation-host-runner PRIVATE -fno-exceptions)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
+    # 16-byte atomics inline (upstream adds this via ConfigureCompiler)
+    target_compile_options(cellstation-host-runner PRIVATE -mcx16 -msse -msse2)
+endif()
 
 target_link_libraries(cellstation-host-runner PRIVATE
     rpcs3_emu
