@@ -184,3 +184,40 @@ jobs:
           name: cellstation-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
+
+  # Boot-test on an arm64 Android emulator (Apple-silicon runner: the only
+  # GitHub-hosted way to run arm64-v8a system images). Payload: the RPCS3
+  # team's own GPL homebrew test ELFs from the submodule — never commercial.
+  integration-test:
+    needs: build-apk
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init rpcs3 submodule (payload ELFs only)
+        run: git submodule update --init --depth 1 rpcs3
+
+      - name: Fetch APK
+        uses: actions/download-artifact@v4
+        with:
+          name: cellstation-debug-apk
+          path: /tmp/apk
+
+      - name: Boot gs_gcm_tetris.elf on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: arm64-v8a
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-snapshot -no-audio -no-boot-anim -camera-back none
+          script: bash ci/integration-test.sh /tmp/apk/app-debug.apk rpcs3/bin/test/gs_gcm_tetris.elf
+
+      - name: Upload logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-logcat
+          path: logcat.txt
+          if-no-files-found: ignore

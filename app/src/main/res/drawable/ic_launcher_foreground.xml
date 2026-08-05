@@ -1,15 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder mark: a stylized cell/hexagon. Deliberately NOT resembling
-     any Sony/PlayStation branding. -->
+<!-- Vector approximation of the CellStation mark: hexagonal "G" (blue crest,
+     white base) around three cell hexagons. Replace with the official raster
+     asset from assets/branding/ when generating store mipmaps.
+     Deliberately NOT resembling any Sony/PlayStation branding. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- blue crest: lower-left rising over the top to upper-right -->
     <path
-        android:fillColor="#7FDBCA"
-        android:pathData="M54,26 L76,39 L76,65 L54,78 L32,65 L32,39 Z" />
+        android:strokeColor="#3B82F6"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M31.5,62 L31.5,41 L54,28 L76.5,41 L76.5,44" />
+    <!-- white base with the G hook -->
     <path
-        android:fillColor="#1A1B2E"
-        android:pathData="M54,36 L67,44 L67,60 L54,68 L41,60 L41,44 Z" />
+        android:strokeColor="#E8EDF5"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M76.5,52 L76.5,67 L54,80 L31.5,67" />
+    <path
+        android:strokeColor="#E8EDF5"
+        android:strokeWidth="9"
+        android:strokeLineCap="round"
+        android:pathData="M76.5,56 L64,56" />
+    <!-- three cell hexagons -->
+    <path
+        android:strokeColor="#4FC3F7"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M54,40 L60.1,43.5 L60.1,50.5 L54,54 L47.9,50.5 L47.9,43.5 Z" />
+    <path
+        android:strokeColor="#4FC3F7"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M47,52 L53.1,55.5 L53.1,62.5 L47,66 L40.9,62.5 L40.9,55.5 Z" />
+    <path
+        android:strokeColor="#4FC3F7"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M61,52 L67.1,55.5 L67.1,62.5 L61,66 L54.9,62.5 L54.9,55.5 Z" />
 </vector>

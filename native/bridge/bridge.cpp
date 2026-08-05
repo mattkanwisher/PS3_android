@@ -588,6 +588,11 @@ JNIEXPORT jint JNICALL Java_nu_hyperworks_cellstation_EmuBridge_boot(JNIEnv* env
 	{
 		cellstation_log.error("Boot failed for '%s': %s", path, result);
 	}
+	else
+	{
+		// Stable marker asserted by ci/integration-test.sh - keep in sync.
+		cellstation_log.success("Boot OK: %s", path);
+	}
 	return static_cast<jint>(result);
 }
 

@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/branding/banner.png" width="340" alt="CellStation — PS3 emulator for Android"></p>
+
 # CellStation — a PS3 emulator for Android handhelds
 
 > **Based on [RPCS3](https://github.com/RPCS3/rpcs3)** — the PlayStation 3 emulator by the RPCS3 team, used under the GPL-2.0 license. This is an **unofficial, independent port**. It is **not affiliated with, endorsed by, or supported by the RPCS3 team** — please do not report issues from this project to them.
