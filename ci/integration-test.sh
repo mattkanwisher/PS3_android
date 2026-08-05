@@ -37,10 +37,18 @@ adb shell am start -n "$PKG/.EmulationActivity" \
     -a nu.hyperworks.cellstation.EMULATE \
     -e bootPath "$PAYLOAD"
 
-sleep 3
-if ! adb shell pidof "$PKG" > /dev/null; then
-    echo "FAIL: app process did not start"
+started=0
+for _ in $(seq 1 10); do
+    if adb shell pidof "$PKG" > /dev/null; then
+        started=1
+        break
+    fi
+    sleep 2
+done
+if [ "$started" != 1 ]; then
+    echo "FAIL: app process did not start; crash context:"
     adb logcat -d > logcat.txt || true
+    grep -E "AndroidRuntime|FATAL|DEBUG   :|SIGSEGV|SIGABRT|backtrace|cellstation|CellStation|linker" logcat.txt | tail -80 || true
     exit 1
 fi
 
