@@ -26,9 +26,17 @@ class MainActivity : AppCompatActivity() {
         uri ?: return@registerForActivityResult
         status.text = getString(R.string.installing_firmware)
         thread {
-            val ok = contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                EmuBridge.installFirmware(pfd.fd)
-            } ?: false
+            // The core reopens the file by path, which fails for SAF fds on
+            // scoped-storage FUSE mounts — stage a private copy instead.
+            val staged = java.io.File(cacheDir, "PS3UPDAT.PUP")
+            val ok = try {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    staged.outputStream().use { output -> input.copyTo(output, 1 shl 20) }
+                } ?: return@thread
+                EmuBridge.installFirmwarePath(staged.absolutePath)
+            } finally {
+                staged.delete()
+            }
             runOnUiThread {
                 status.text = if (ok) {
                     getString(R.string.firmware_version, EmuBridge.firmwareVersion())

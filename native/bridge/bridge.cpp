@@ -413,6 +413,20 @@ namespace
 		callbacks.check_microphone_permissions = []() {};
 		callbacks.make_video_source = []() { return nullptr; };
 
+		// Every std::function member must be callable: the tree builds with
+		// -fno-exceptions, so an empty one aborts via bad_function_call.
+		callbacks.update_emu_settings = []() {};
+		callbacks.save_emu_settings = []() { Emulator::SaveSettings(g_cfg.to_string(), Emu.GetTitleID()); };
+		callbacks.get_sendmessage_dialog = []() -> std::shared_ptr<SendMessageDialogBase> { return {}; };
+		callbacks.get_recvmessage_dialog = []() -> std::shared_ptr<RecvMessageDialogBase> { return {}; };
+		callbacks.get_photo_path = [](std::string_view) -> std::string { return {}; };
+		callbacks.get_image_info = [](const std::string&, std::string&, s32&, s32&, s32&) -> bool { return false; };
+		callbacks.get_scaled_image = [](const std::string&, s32, s32, s32&, s32&, u8*, bool) -> bool { return false; };
+		callbacks.get_font_dirs = []() -> std::vector<std::string> { return {}; };
+		callbacks.on_install_pkgs = [](const std::vector<std::string>&) { return false; };
+		callbacks.enable_gamemode = [](bool) {};
+		callbacks.get_database_config = [](const std::string&) -> std::string { return {}; };
+
 		Emu.SetCallbacks(std::move(callbacks));
 	}
 
@@ -539,7 +553,15 @@ JNIEXPORT void JNICALL Java_nu_hyperworks_cellstation_EmuBridge_runMainLoop(JNIE
 
 JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_installFirmware(JNIEnv*, jclass, jint fd)
 {
+	// Note: reopening a SAF/content-provider fd via /proc/self/fd fails with
+	// EACCES on scoped-storage FUSE mounts; prefer installFirmwarePath with a
+	// file the app itself can open (e.g. a copy in cacheDir).
 	return install_firmware(fmt::format("/proc/self/fd/%d", fd)) ? JNI_TRUE : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_installFirmwarePath(JNIEnv* env, jclass, jstring jpath)
+{
+	return install_firmware(jstr(env, jpath)) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_firmwareVersion(JNIEnv* env, jclass)

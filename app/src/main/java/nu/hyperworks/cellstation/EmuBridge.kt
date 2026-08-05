@@ -20,6 +20,10 @@ object EmuBridge {
     external fun runMainLoop()
 
     external fun installFirmware(fd: Int): Boolean
+
+    /** Installs firmware from a path the app can open directly (see MainActivity: SAF fds can't be reopened). */
+    external fun installFirmwarePath(path: String): Boolean
+
     external fun firmwareVersion(): String
 
     /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */

@@ -15,6 +15,7 @@ captures/
 CMakeCache.txt
 CMakeFiles/
 cmake-build-*/
+build-android/
 
 # Misc
 .DS_Store
