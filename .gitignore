@@ -21,3 +21,4 @@ build-android/
 .DS_Store
 *.log
 app/src/main/jniLibs/
+build-host/
