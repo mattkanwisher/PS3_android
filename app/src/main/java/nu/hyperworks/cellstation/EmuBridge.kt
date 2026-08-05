@@ -1,0 +1,35 @@
+package nu.hyperworks.cellstation
+
+import android.view.Surface
+
+/**
+ * JNI surface over the RPCS3 core (libcellstation.so). Keep in sync with
+ * native/bridge/bridge.cpp. CellStation is based on RPCS3 (GPL-2.0).
+ */
+object EmuBridge {
+    init {
+        System.loadLibrary("cellstation")
+    }
+
+    const val SURFACE_READY = 0
+    const val SURFACE_DESTROYED = 2
+
+    external fun initialize(rootDir: String, user: String): Boolean
+
+    /** Blocks forever, draining the core's main-thread queue. Call from a dedicated thread. */
+    external fun runMainLoop()
+
+    external fun installFirmware(fd: Int): Boolean
+    external fun firmwareVersion(): String
+
+    /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */
+    external fun boot(path: String): Int
+
+    external fun surfaceEvent(surface: Surface?, event: Int): Boolean
+
+    external fun kill()
+    external fun pause()
+    external fun resume()
+    external fun getState(): Int
+    external fun getVersion(): String
+}

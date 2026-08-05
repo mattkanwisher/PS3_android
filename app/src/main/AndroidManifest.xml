@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:name=".CellStationApp"
+        android:label="CellStation"
+        android:icon="@mipmap/ic_launcher"
+        android:isGame="true"
+        android:requestLegacyExternalStorage="false"
+        android:extractNativeLibs="false"
+        android:theme="@style/Theme.AppCompat.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Public launch-intent contract (docs/INTENTS.md): frontends like
+             Cocoon/Daijisho boot games directly into this activity. -->
+        <activity
+            android:name=".EmulationActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
+            <intent-filter>
+                <action android:name="nu.hyperworks.cellstation.EMULATE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

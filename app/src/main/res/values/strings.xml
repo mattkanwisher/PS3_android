@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CellStation</string>
+    <string name="app_banner">CellStation — based on RPCS3\n%1$s</string>
+    <string name="install_firmware">Install PS3 firmware (PUP)</string>
+    <string name="installing_firmware">Installing firmware…</string>
+    <string name="firmware_install_failed">Firmware installation failed — see logcat.</string>
+    <string name="firmware_version">Firmware installed: %1$s</string>
+    <string name="no_firmware">No PS3 firmware installed. Install a PS3UPDAT.PUP first.</string>
+    <string name="games_hint">Games (drop files into Android/data/nu.hyperworks.cellstation/files/games/):</string>
+    <string name="no_games">No games found in\n%1$s</string>
+    <string name="no_boot_path">No boot path provided.</string>
+    <string name="boot_failed">Boot failed (code %1$d)</string>
+</resources>
