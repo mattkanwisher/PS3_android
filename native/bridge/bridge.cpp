@@ -42,6 +42,7 @@
 #include "Crypto/unself.h"
 #include "Crypto/key_vault.h"
 #include "util/video_source.h"
+#include "rpcs3_version.h"
 
 #include <jni.h>
 #include <android/log.h>
