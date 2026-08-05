@@ -220,7 +220,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-snapshot -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect -camera-back none
-          script: bash ci/integration-test.sh /tmp/apk/app-debug.apk rpcs3/bin/test/gs_gcm_tetris.elf
+          script: bash ci/integration-test.sh "$(ls /tmp/apk/*.apk | head -1)" rpcs3/bin/test/gs_gcm_tetris.elf
 
       - name: Upload logcat
         if: always()
