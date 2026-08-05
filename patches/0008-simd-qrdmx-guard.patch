@@ -1,11 +1,28 @@
-Subject: simd: guard SQRDMLAH intrinsic behind __ARM_FEATURE_QRDMX
-Why: vqrdmlahq_s16 is ARMv8.1 (QRDMX extension); with the -march baseline
- made overridable (RPCS3_ARM_BASELINE) an armv8-a build fails to compile.
- The fallback is bit-exact: saturating widening doubling multiply-accumulate
- onto (c << 16), then rounding saturating narrow — intermediate saturation
- clamps to the same final ssat16 result as the unsaturated computation.
+Subject: util: guard ARMv8.1-only code so lower -march baselines compile
+Why: with the -march baseline made overridable (RPCS3_ARM_BASELINE) an
+ armv8-a build fails on two v8.1-isms:
+ - simd.hpp: vqrdmlahq_s16 is v8.1 QRDMX; add a bit-exact armv8.0 NEON
+   fallback (saturating widening doubling multiply-accumulate onto
+   (c << 16), then rounding saturating narrow — intermediate saturation
+   clamps to the same final ssat16 result as the unsaturated computation).
+ - asm.hpp: trigger_write_page_fault hand-codes LSE ldset; gate it on
+   __ARM_FEATURE_ATOMICS and use the existing generic atomic-RMW branch
+   otherwise.
 Upstream-status: candidate
 
+diff --git a/rpcs3/util/asm.hpp b/rpcs3/util/asm.hpp
+index da7326a..008aaa0 100644
+--- a/rpcs3/util/asm.hpp
++++ b/rpcs3/util/asm.hpp
+@@ -476,7 +476,7 @@ namespace utils
+ 	{
+ #if defined(ARCH_X64) && !defined(_MSC_VER)
+ 		__asm__ volatile("lock orl $0, 0(%0)" :: "r" (ptr));
+-#elif defined(ARCH_ARM64)
++#elif defined(ARCH_ARM64) && defined(__ARM_FEATURE_ATOMICS)
+ 		u32 value = 0;
+ 		u32* u32_ptr = static_cast<u32*>(ptr);
+ 		__asm__ volatile("ldset %w0, %w0, %1" : "+r"(value), "=Q"(*u32_ptr) : "r"(value));
 diff --git a/rpcs3/util/simd.hpp b/rpcs3/util/simd.hpp
 index f07163e..2a34113 100644
 --- a/rpcs3/util/simd.hpp
