@@ -4,6 +4,7 @@
 add_library(cellstation SHARED
     bridge.cpp
     android_pad_handler.cpp
+    fatal_report.cpp
     "${rpcs3_SOURCE_DIR}/rpcs3/rpcs3_version.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/pad_thread.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/product_info.cpp"
@@ -32,6 +33,10 @@ if(NOT RPCS3_ARM_BASELINE)
     set(RPCS3_ARM_BASELINE armv8.1-a)
 endif()
 target_compile_options(cellstation PRIVATE -march=${RPCS3_ARM_BASELINE} -fno-exceptions)
+
+# Describing the in-flight exception requires rethrowing it, so this one file
+# opts back in (source options are appended after the target's).
+set_source_files_properties(fatal_report.cpp PROPERTIES COMPILE_OPTIONS "-fexceptions")
 
 target_link_libraries(cellstation PRIVATE
     rpcs3_emu

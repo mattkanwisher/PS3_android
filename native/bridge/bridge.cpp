@@ -53,6 +53,7 @@
 #include <sys/resource.h>
 
 #include <deque>
+
 #include <mutex>
 #include <condition_variable>
 
@@ -60,6 +61,8 @@
 #include "Input/mouse_gyro_handler.h"
 
 LOG_CHANNEL(cellstation_log, "CELLSTATION");
+
+namespace chrysalis { std::string describe_current_exception(); } // fatal_report.cpp
 
 // mouse_gyro_handler's implementation lives in a Qt translation unit upstream
 // (QEvent-driven desktop feature). pad_thread only needs these two members;
@@ -133,6 +136,15 @@ extern "C" jint JNI_GetCreatedJavaVMs(JavaVM** vm_buf, jsize buf_len, jsize* n_v
 [[noreturn]] void report_fatal_error(std::string_view text, bool /*is_html*/ = false, bool /*include_help_text*/ = true)
 {
 	__android_log_print(ANDROID_LOG_FATAL, "CellStation", "FATAL: %.*s", static_cast<int>(text.size()), text.data());
+
+	// The core routes std::terminate here, so an unhandled exception is still
+	// active and carries the only description of what actually went wrong.
+	// Without this the crash reads as a bare "abnormally terminated".
+	if (const std::string what = chrysalis::describe_current_exception(); !what.empty())
+	{
+		__android_log_print(ANDROID_LOG_FATAL, "CellStation", "FATAL: unhandled exception -> %s", what.c_str());
+	}
+
 	std::abort();
 }
 
