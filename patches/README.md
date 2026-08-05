@@ -71,3 +71,10 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
     register (the emulator's ndk_translation); read it via a SIGILL-guarded
     helper that falls back to calibrating `cntvct` against
     `CLOCK_MONOTONIC`. Upstream-status: candidate.
+11. `0011-vk-unsized-ubo-array-fallback.patch` — the shader backends
+    require `VK_EXT_shader_uniform_buffer_unsized_array`, which no
+    Qualcomm Adreno driver exposes, so every pipeline creation failed
+    with `VK_ERROR_UNKNOWN` on Snapdragon; emit the affected uniform
+    blocks as readonly storage buffers when the extension is missing
+    (hardware-verified on AYN Thor / Adreno 740). Upstream-status:
+    candidate.
