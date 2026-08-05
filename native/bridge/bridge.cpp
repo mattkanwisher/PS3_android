@@ -503,9 +503,12 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(J
 		return JNI_TRUE;
 
 	const std::string root = jstr(env, root_dir);
+	// Trailing slashes are load-bearing: fs::get_config_dir()/get_cache_dir()
+	// return these verbatim and the core appends names directly
+	// ("configdev_hdd0/" vs "config/dev_hdd0/").
 	g_android_executable_dir = root;
-	g_android_config_dir = root + "/config";
-	g_android_cache_dir = root + "/cache";
+	g_android_config_dir = root + "/config/";
+	g_android_cache_dir = root + "/cache/";
 	fs::create_path(g_android_config_dir);
 	fs::create_path(g_android_cache_dir);
 

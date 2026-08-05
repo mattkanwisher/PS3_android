@@ -13,6 +13,42 @@ An Android port of the RPCS3 emulation core for Snapdragon-powered gaming handhe
 - **Frontend-friendly.** A documented, stable Android intent contract so any launcher can boot games directly.
 - **Honest.** Public compatibility expectations, full source for every release, no monetization.
 
+## Building locally
+
+Mirrors [.github/workflows/android-core.yml](.github/workflows/android-core.yml). Needs CMake ≥ 3.28, Ninja, an Android NDK, ccache, and the LLVM android-aarch64 prebuilt (artifact of the `llvm-android` workflow — see the header of [ci/build-local.sh](ci/build-local.sh)). On macOS: `brew install cmake ninja ccache && brew install --cask android-ndk`.
+
+```bash
+git submodule update --init --depth 1 rpcs3
+```
+
+```bash
+cd rpcs3 && for m in $(git submodule status | awk '{print $2}' | grep -vE 'llvm|ffmpeg|MoltenVK'); do git submodule update --init --depth 1 "$m"; done
+```
+
+```bash
+sh ci/apply-patches.sh
+```
+
+```bash
+sh ci/build-local.sh
+```
+
+```bash
+cd app && gradle assembleDebug
+```
+
+The build script cross-compiles a static ffmpeg into `~/ffmpeg-android` (first run only), configures `native/` with the NDK toolchain (arm64-v8a, android-29, `WITH_LLVM=ON` against the prebuilt), builds `libcellstation.so`, and stages a stripped copy into `app/src/main/jniLibs/`. Override `ANDROID_NDK_HOME`, `FFMPEG_PREFIX`, `LLVM_PREBUILT`, or `BUILD_DIR` via the environment.
+
+## Testing with homebrew
+
+The rpcs3 submodule ships the RPCS3 team's own homebrew test programs in `rpcs3/bin/test/` (GPL-2.0, no commercial content). Use these as boot-test payloads — never commercial games:
+
+- `ppu_thread.elf` (139 KB) — minimal CPU/threading smoke test, no graphics.
+- `gs_gcm_hello_world.elf` (343 KB) — first RSX output.
+- `gs_gcm_tetris.elf` (548 KB) — smallest actual *game*: playable GCM Tetris.
+
+Drop one into `Android/data/nu.hyperworks.cellstation/files/games/` and boot it from the app, or via the intent contract (see [docs/INTENTS.md](docs/INTENTS.md)).
+
 ## Attribution & license
 
 This project is licensed under **GPL-2.0** ([LICENSE](LICENSE)), inherited from RPCS3.
