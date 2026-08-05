@@ -185,14 +185,22 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 30
 
-  # Boot-test on an arm64 Android emulator (Apple-silicon runner: the only
-  # GitHub-hosted way to run arm64-v8a system images). Payload: the RPCS3
-  # team's own GPL homebrew test ELFs from the submodule — never commercial.
+  # Boot-test on an Android emulator. GitHub's Apple-silicon runners cannot
+  # run arm64 AVDs (no nested virtualization: HVF error HV_UNSUPPORTED), so
+  # this uses a KVM-accelerated x86_64 image whose bundled ndk_translation
+  # runs our arm64-v8a lib. Payload: the RPCS3 team's own GPL homebrew test
+  # ELFs from the submodule — never commercial content.
   integration-test:
     needs: build-apk
-    runs-on: macos-15
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
       - uses: actions/checkout@v4
 
       - name: Init rpcs3 submodule (payload ELFs only)
@@ -207,11 +215,11 @@ jobs:
       - name: Boot gs_gcm_tetris.elf on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          arch: arm64-v8a
+          api-level: 30
+          arch: x86_64
           target: google_apis
           disable-animations: true
-          emulator-options: -no-snapshot -no-audio -no-boot-anim -camera-back none
+          emulator-options: -no-snapshot -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect -camera-back none
           script: bash ci/integration-test.sh /tmp/apk/app-debug.apk rpcs3/bin/test/gs_gcm_tetris.elf
 
       - name: Upload logcat
