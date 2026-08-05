@@ -1,0 +1,162 @@
+name: release
+
+# Versioned releases: push a tag like v0.1.0 and this builds the shipping
+# armv8.1 core + a signed release APK stamped with that version, then
+# publishes a (non-prerelease) GitHub release for the tag. Build steps
+# mirror android-core.yml — keep them in sync.
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  FFMPEG_VER: n7.1.1
+  LLVM_RUN_ID: "30952529252"
+  LLVM_ARTIFACT: llvm-android-aarch64-ca7933e47d
+  NDK_VERSION: 28.2.13676358
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Init rpcs3 submodule (shallow; skip llvm, ffmpeg, MoltenVK)
+        run: |
+          git submodule update --init --depth 1 rpcs3
+          cd rpcs3
+          for m in $(git submodule status | awk '{print $2}' | grep -vE 'llvm|ffmpeg|MoltenVK'); do
+            git submodule update --init --depth 1 "$m"
+          done
+
+      - name: Apply patch series
+        run: sh ci/apply-patches.sh
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build ccache nasm
+
+      - name: Set up pinned NDK
+        run: |
+          set -eux
+          SDK="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          NDK="$SDK/ndk/$NDK_VERSION"
+          if [ ! -d "$NDK" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION"
+          fi
+          echo "NDK=$NDK" >> "$GITHUB_ENV"
+
+      - name: ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-android-core-armv8.1-a-${{ github.sha }}
+          restore-keys: ccache-android-core-armv8.1-a-
+
+      - name: Cache ffmpeg (android-aarch64)
+        id: ffmpeg-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/ffmpeg-android
+          key: ffmpeg-${{ env.FFMPEG_VER }}-android29-arm64-ndk${{ env.NDK_VERSION }}
+
+      - name: Build ffmpeg (android-aarch64)
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        run: |
+          set -eux
+          TC="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
+          git clone --depth 1 --branch "$FFMPEG_VER" https://github.com/FFmpeg/FFmpeg.git ffmpeg-src
+          cd ffmpeg-src
+          ./configure \
+            --prefix="$HOME/ffmpeg-android" \
+            --enable-cross-compile --target-os=android --arch=aarch64 --cpu=armv8-a \
+            --cc="$TC/bin/aarch64-linux-android29-clang" \
+            --cxx="$TC/bin/aarch64-linux-android29-clang++" \
+            --ar="$TC/bin/llvm-ar" --ranlib="$TC/bin/llvm-ranlib" \
+            --nm="$TC/bin/llvm-nm" --strip="$TC/bin/llvm-strip" \
+            --enable-static --disable-shared --enable-pic \
+            --disable-programs --disable-doc --disable-avdevice \
+            --disable-avfilter --disable-postproc --disable-network \
+            --disable-vulkan
+          make -j"$(nproc)"
+          make install
+
+      - name: Fetch LLVM prebuilt (android-aarch64)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          gh run download "$LLVM_RUN_ID" -n "$LLVM_ARTIFACT" --repo "$GITHUB_REPOSITORY" -D /tmp/llvm-dl
+          tar -C "$HOME" -xzf /tmp/llvm-dl/llvm-android-aarch64.tar.gz
+          test -f "$HOME/llvm-android/lib/cmake/llvm/LLVMConfig.cmake"
+
+      - name: Configure core (NDK, armv8.1-a, LLVM 22)
+        run: |
+          set -eux
+          cmake -S native -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-29 \
+            -DANDROID_FFMPEG_ROOT="$HOME/ffmpeg-android" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DWITH_LLVM=ON \
+            -DBUILD_LLVM=OFF \
+            -DSTATIC_LINK_LLVM=ON \
+            -DLLVM_DIR="$HOME/llvm-android/lib/cmake/llvm" \
+            -DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH \
+            -DRPCS3_ARM_BASELINE=armv8.1-a
+
+      - name: Build libcellstation.so
+        run: |
+          cmake --build build --target cellstation -j"$(nproc)"
+          "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded -o build/bridge/libcellstation.stripped.so build/bridge/libcellstation.so
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          cp build/bridge/libcellstation.stripped.so app/src/main/jniLibs/arm64-v8a/libcellstation.so
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+
+      - name: Assemble release APK
+        working-directory: app
+        run: |
+          set -eux
+          tag="${GITHUB_REF_NAME}"                    # e.g. v0.1.0
+          ver="${tag#v}"                              # 0.1.0
+          IFS=. read -r major minor patch <<< "$ver"
+          patch_num=$(printf '%s' "${patch:-0}" | sed 's/[^0-9].*//')  # "3-rc1" -> 3
+          # Monotonic versionCode from the semver: v0.1.0 -> 10000, v1.2.3 -> 1020003
+          code=$(( ${major:-0} * 1000000 + ${minor:-0} * 10000 + ${patch_num:-0} ))
+          export CELLSTATION_VERSION="$ver"
+          export CELLSTATION_VERSION_CODE="$code"
+          gradle --no-daemon assembleRelease
+          mv build/outputs/apk/release/*.apk "build/outputs/apk/release/CellStation-${ver}.apk"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          tag="${GITHUB_REF_NAME}"
+          ver="${tag#v}"
+          cat > notes.md <<EOF
+          CellStation ${ver} — arm64 (armv8.1+) release build for Snapdragon handhelds (AYN Odin, Thor, ...). Signed with the public CI key: a stable sideload identity, not an authenticity guarantee.
+
+          Build provenance: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+
+          CellStation is an unofficial Android port of RPCS3 (https://github.com/RPCS3/rpcs3, GPL-2.0), not affiliated with or supported by the RPCS3 team — do not report issues there. No firmware, BIOS, or game content is included or supported. See docs/ATTRIBUTION.md for the exact upstream pin and patch series this was built from.
+          EOF
+          gh release create "$tag" \
+            --title "CellStation ${ver}" \
+            --notes-file notes.md \
+            --verify-tag \
+            "app/build/outputs/apk/release/CellStation-${ver}.apk"

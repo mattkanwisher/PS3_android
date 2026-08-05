@@ -11,10 +11,34 @@ android {
         applicationId = "nu.hyperworks.cellstation"
         minSdk = 29
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-pre-alpha"
+        // CI stamps these from the git tag / run number; local builds fall back.
+        versionCode = (System.getenv("CELLSTATION_VERSION_CODE") ?: "1").toInt()
+        versionName = System.getenv("CELLSTATION_VERSION") ?: "0.1.0-dev"
         ndk {
             abiFilters += "arm64-v8a"
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            // ci-keystore.jks is committed and its passwords are public: it
+            // provides a *stable sideload identity* (updates install over each
+            // other), not authenticity. To sign with a private key, override
+            // all four environment variables.
+            storeFile = file(System.getenv("CELLSTATION_KEYSTORE") ?: "ci-keystore.jks")
+            storePassword = System.getenv("CELLSTATION_KEYSTORE_PASS") ?: "cellstation"
+            keyAlias = System.getenv("CELLSTATION_KEY_ALIAS") ?: "cellstation"
+            keyPassword = System.getenv("CELLSTATION_KEY_PASS") ?: "cellstation"
+        }
+    }
+
+    buildTypes {
+        release {
+            // The emulator core is all native code, already built -O2 by the
+            // separate CMake project; minifying the thin Kotlin shell buys
+            // nothing and complicates JNI.
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
