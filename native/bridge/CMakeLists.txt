@@ -8,6 +8,7 @@ set(RPCS3_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rpcs3/rpcs3")
 # info (the desktop app compiles these into the executable); reuse the
 # upstream sources unmodified — they are already Android-aware.
 add_library(chrysalis SHARED
+    chrysalis_boot.cpp
     chrysalis_jni.cpp
     core_compat.cpp
     "${RPCS3_SRC_DIR}/rpcs3_version.cpp"

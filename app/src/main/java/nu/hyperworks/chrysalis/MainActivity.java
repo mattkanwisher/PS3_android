@@ -59,6 +59,20 @@ public class MainActivity extends Activity {
             refreshStatus("Installing firmware from " + pupPath + "… (see logcat, tag rpcs3)");
             installFromFile(new File(pupPath), false);
         }
+
+        // Debug/frontend hook: boot a game/ELF directly, e.g.
+        // adb shell am start -n nu.hyperworks.chrysalis/.MainActivity \
+        //   --es boot_path /data/data/nu.hyperworks.chrysalis/files/game.elf
+        String bootPath = getIntent().getStringExtra("boot_path");
+        if (bootPath != null) {
+            refreshStatus("Booting " + bootPath + "… (see logcat, tag rpcs3)");
+            new Thread(() -> {
+                String error = NativeCore.bootGame(bootPath);
+                runOnUiThread(() -> refreshStatus(error == null || error.isEmpty()
+                        ? "Boot started: " + bootPath
+                        : "Boot failed: " + error));
+            }, "boot").start();
+        }
     }
 
     private void installFromFile(File pup, boolean deleteAfter) {

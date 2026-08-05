@@ -175,6 +175,12 @@ std::string install_firmware(const std::string& path)
 
 extern JavaVM* g_chrysalis_vm; // core_compat.cpp
 
+namespace chrysalis
+{
+	void init_callbacks();               // chrysalis_boot.cpp
+	std::string boot_game(const std::string& path);
+}
+
 extern "C"
 {
 
@@ -204,8 +210,13 @@ JNIEXPORT void JNICALL Java_nu_hyperworks_chrysalis_NativeCore_init(JNIEnv* env,
 		s_added = true;
 		logs::listener::add(&s_listener);
 
-		// Sets up config dirs and the global fixed-object manager; vfs::mount
-		// (and thus firmware installation) requires it (see Emu/VFS.cpp).
+		// Mirrors main_application::InitializeEmulator(user, show_gui=false,
+		// headless=true). Emu.Init() sets up config dirs and the global
+		// fixed-object manager; vfs::mount requires it (see Emu/VFS.cpp).
+		chrysalis::init_callbacks();
+		Emu.SetHasGui(false);
+		Emu.SetHeadless(true);
+		Emu.SetUsr("00000001");
 		Emu.Init();
 	}
 
@@ -220,6 +231,11 @@ JNIEXPORT jstring JNICALL Java_nu_hyperworks_chrysalis_NativeCore_firmwareVersio
 JNIEXPORT jstring JNICALL Java_nu_hyperworks_chrysalis_NativeCore_installFirmware(JNIEnv* env, jclass, jstring pup_path)
 {
 	return to_java(env, install_firmware(to_std(env, pup_path)));
+}
+
+JNIEXPORT jstring JNICALL Java_nu_hyperworks_chrysalis_NativeCore_bootGame(JNIEnv* env, jclass, jstring path)
+{
+	return to_java(env, chrysalis::boot_game(to_std(env, path)));
 }
 
 } // extern "C"

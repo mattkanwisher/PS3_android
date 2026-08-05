@@ -16,4 +16,7 @@ public final class NativeCore {
 
     /** Installs firmware from a PUP file. Returns "" on success, else an error message. Blocking. */
     public static native String installFirmware(String pupPath);
+
+    /** Boots a game/ELF at the given path. Returns "" on success, else the boot error. */
+    public static native String bootGame(String path);
 }
