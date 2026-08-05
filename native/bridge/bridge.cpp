@@ -536,6 +536,15 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(J
 
 	Emu.SetHasGui(false);
 	Emu.SetUsr(usr);
+	// Without this the core's supported-renderer list stays at its {null}
+	// default and System.cpp forces any Vulkan config back to Null.
+	Emu.SetSupportedRenderers({
+		video_renderer::null,
+#if defined(HAVE_VULKAN)
+		video_renderer::vulkan,
+#endif
+	});
+	Emu.SetDefaultRenderer(video_renderer::null);
 	Emu.Init();
 
 	init_callbacks();
