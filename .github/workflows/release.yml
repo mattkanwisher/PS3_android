@@ -23,6 +23,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the build number is the commit count (shared counter
+          # with the nightly channel, keeps versionCode monotonic everywhere).
+          fetch-depth: 0
 
       - name: Init rpcs3 submodule (shallow; skip llvm, ffmpeg, MoltenVK)
         run: |
@@ -132,14 +136,13 @@ jobs:
           set -eux
           tag="${GITHUB_REF_NAME}"                    # e.g. v0.1.0
           ver="${tag#v}"                              # 0.1.0
-          IFS=. read -r major minor patch <<< "$ver"
-          patch_num=$(printf '%s' "${patch:-0}" | sed 's/[^0-9].*//')  # "3-rc1" -> 3
-          # Monotonic versionCode from the semver: v0.1.0 -> 10000, v1.2.3 -> 1020003
-          code=$(( ${major:-0} * 1000000 + ${minor:-0} * 10000 + ${patch_num:-0} ))
-          export CELLSTATION_VERSION="$ver"
-          export CELLSTATION_VERSION_CODE="$code"
+          build=$(git rev-list --count HEAD)
+          full="${ver}.${build}"                      # final version: tag + build number
+          export CELLSTATION_VERSION="$full"
+          export CELLSTATION_VERSION_CODE="$build"
+          echo "CELLSTATION_FULL_VERSION=$full" >> "$GITHUB_ENV"
           gradle --no-daemon assembleRelease
-          mv build/outputs/apk/release/*.apk "build/outputs/apk/release/CellStation-${ver}.apk"
+          mv build/outputs/apk/release/*.apk "build/outputs/apk/release/CellStation-${full}.apk"
 
       - name: Publish GitHub release
         env:
@@ -147,7 +150,7 @@ jobs:
         run: |
           set -eux
           tag="${GITHUB_REF_NAME}"
-          ver="${tag#v}"
+          ver="${CELLSTATION_FULL_VERSION}"
           cat > notes.md <<EOF
           CellStation ${ver} — arm64 (armv8.1+) release build for Snapdragon handhelds (AYN Odin, Thor, ...). Signed with the public CI key: a stable sideload identity, not an authenticity guarantee.
 

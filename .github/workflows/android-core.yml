@@ -205,6 +205,10 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history: the build number is the commit count, one monotonic
+          # counter shared with tagged releases so versionCode always upgrades.
+          fetch-depth: 0
 
       - name: Fetch libcellstation
         uses: actions/download-artifact@v4
@@ -230,10 +234,11 @@ jobs:
 
       - name: Assemble release APK
         working-directory: app
-        env:
-          CELLSTATION_VERSION_CODE: ${{ github.run_number }}
         run: |
-          export CELLSTATION_VERSION="nightly-${GITHUB_SHA::7}"
+          set -eux
+          build=$(git rev-list --count HEAD)
+          export CELLSTATION_VERSION="nightly.${build}"
+          export CELLSTATION_VERSION_CODE="$build"
           gradle --no-daemon assembleRelease
 
       - name: Upload APK (release)
