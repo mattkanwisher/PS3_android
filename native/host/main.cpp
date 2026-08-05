@@ -62,6 +62,13 @@ void mouse_gyro_handler::apply_gyro(const std::shared_ptr<Pad>&) {}
 // hidraw-backend hidapi we link just needs the symbol to exist.
 extern "C" void* hid_libusb_wrap_sys_device(intptr_t, int) { return nullptr; }
 
+// Emu/title.cpp references this from the GL utils, which the harness excludes
+// (the boot test never creates a GL device).
+namespace gl
+{
+	const std::string get_device_name() { return "null"; }
+}
+
 void qt_events_aware_op(int repeat_duration_ms, std::function<bool()> wrapped_op)
 {
 	ensure(wrapped_op);
