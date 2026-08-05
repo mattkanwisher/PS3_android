@@ -1,0 +1,35 @@
+Subject: JITLLVM: restore compatibility with LLVM < 21
+Why: The build system accepts prebuilt LLVM >= 18 (3rdparty/llvm), but
+     Module::setTargetTriple is called with an llvm::Triple, an overload
+     that only exists since LLVM 21 (older versions take StringRef).
+     Guard the two call sites so the stated support range compiles.
+Upstream-status: candidate
+
+diff --git a/Utilities/JITLLVM.cpp b/Utilities/JITLLVM.cpp
+index ff3bc34..0654a5b 100644
+--- a/Utilities/JITLLVM.cpp
++++ b/Utilities/JITLLVM.cpp
+@@ -707,7 +707,11 @@ jit_compiler::jit_compiler(const std::unordered_map<std::string, u64>& _link, st
+ 	std::string result;
+ 
+ 	auto null_mod = std::make_unique<llvm::Module> ("null_", *m_context);
++#if LLVM_VERSION_MAJOR >= 21
+ 	null_mod->setTargetTriple(llvm::Triple(jit_compiler::triple1()));
++#else
++	null_mod->setTargetTriple(jit_compiler::triple1());
++#endif
+ 
+ 	std::unique_ptr<llvm::RTDyldMemoryManager> mem;
+ 
+@@ -721,7 +725,11 @@ jit_compiler::jit_compiler(const std::unordered_map<std::string, u64>& _link, st
+ 		else
+ 		{
+ 			mem = std::make_unique<MemoryManager2>(std::move(symbols_cement));
++#if LLVM_VERSION_MAJOR >= 21
+ 			null_mod->setTargetTriple(llvm::Triple(jit_compiler::triple2()));
++#else
++			null_mod->setTargetTriple(jit_compiler::triple2());
++#endif
+ 		}
+ 	}
+ 	else

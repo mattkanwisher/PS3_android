@@ -50,3 +50,6 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
 5. `0005-vkoverlays-include-image.patch` — `VKOverlays.h` needs the full
    `vk::image` definition (unique_ptr members + virtual dtor); libc++
    rejects the forward-decl-only include chain. Upstream-status: candidate.
+6. `0006-jitllvm-llvm-pre21-compat.patch` — `Module::setTargetTriple(llvm::Triple)`
+   requires LLVM ≥ 21 but the build system accepts prebuilt LLVM ≥ 18; guard
+   the two call sites. Upstream-status: candidate.
