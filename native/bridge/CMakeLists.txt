@@ -3,6 +3,7 @@
 
 add_library(cellstation SHARED
     bridge.cpp
+    android_pad_handler.cpp
     "${rpcs3_SOURCE_DIR}/rpcs3/rpcs3_version.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/pad_thread.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/product_info.cpp"

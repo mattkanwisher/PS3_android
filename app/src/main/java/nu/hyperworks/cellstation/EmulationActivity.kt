@@ -1,6 +1,8 @@
 package nu.hyperworks.cellstation
 
 import android.os.Bundle
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.WindowManager
@@ -24,6 +26,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private var booted = false
+    private val pad = PadState()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,6 +72,30 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         EmuBridge.surfaceEvent(null, EmuBridge.SURFACE_DESTROYED)
+    }
+
+    // Controller input: Android delivers gamepad events to the focused activity,
+    // so forward them to the native pad handler and consume them. Non-gamepad
+    // keys (e.g. volume, back on a phone) fall through to the default handling.
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        pad.onKey(event) || super.onKeyDown(keyCode, event)
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean =
+        pad.onKey(event) || super.onKeyUp(keyCode, event)
+
+    override fun onGenericMotionEvent(event: MotionEvent): Boolean =
+        pad.onMotion(event) || super.onGenericMotionEvent(event)
+
+    override fun onResume() {
+        super.onResume()
+        EmuBridge.setPadConnected(true)
+    }
+
+    override fun onPause() {
+        // Release every button so a game doesn't see input stuck down while
+        // the activity is backgrounded.
+        EmuBridge.setPadConnected(false)
+        super.onPause()
     }
 
     override fun onDestroy() {
