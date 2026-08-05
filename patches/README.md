@@ -34,4 +34,6 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
 
 ## Current series
 
-(empty — no divergence from upstream yet)
+| Patch | Why | Upstream-status |
+|---|---|---|
+| `0001-cmake-embedded-build-paths.patch` | Fix `CMAKE_SOURCE_DIR`/`CMAKE_BINARY_DIR` assumptions in `FindWolfSSL.cmake`, `FindZLIB.cmake`, and the `rpcs3_emu` include root that break configure when rpcs3 is embedded via `add_subdirectory()` | candidate |

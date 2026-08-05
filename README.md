@@ -13,6 +13,28 @@ An Android port of the RPCS3 emulation core for Snapdragon-powered gaming handhe
 - **Frontend-friendly.** A documented, stable Android intent contract so any launcher can boot games directly.
 - **Honest.** Public compatibility expectations, full source for every release, no monetization.
 
+## Building locally
+
+Mirrors [.github/workflows/android-core.yml](.github/workflows/android-core.yml). Needs CMake ≥ 3.28, Ninja, an Android NDK, and (optionally) ccache — on macOS: `brew install cmake ninja ccache && brew install --cask android-ndk`.
+
+```bash
+git submodule update --init --depth 1 rpcs3
+```
+
+```bash
+cd rpcs3 && for m in $(git submodule status | awk '{print $2}' | grep -vE 'llvm|ffmpeg|MoltenVK'); do git submodule update --init --depth 1 "$m"; done
+```
+
+```bash
+sh ci/apply-patches.sh
+```
+
+```bash
+sh ci/build-local.sh
+```
+
+The build script cross-compiles a static ffmpeg into `~/ffmpeg-android` (first run only), then configures `native/` with the NDK toolchain (arm64-v8a, android-29, `WITH_LLVM=OFF` bring-up config) and builds the `rpcs3_emu` core into `build-android/`. Override `ANDROID_NDK_HOME`, `FFMPEG_PREFIX`, or `BUILD_DIR` via the environment; the NDK default is Homebrew's `/opt/homebrew/share/android-ndk`.
+
 ## Attribution & license
 
 This project is licensed under **GPL-2.0** ([LICENSE](LICENSE)), inherited from RPCS3.

@@ -12,6 +12,7 @@ captures/
 *.keystore
 
 # Native build
+build-android/
 CMakeCache.txt
 CMakeFiles/
 cmake-build-*/
