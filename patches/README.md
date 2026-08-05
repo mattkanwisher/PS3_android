@@ -62,3 +62,7 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
    fallback in `simd.hpp`; the hand-coded LSE `ldset` in
    `trigger_write_page_fault` is gated on `__ARM_FEATURE_ATOMICS`
    (generic atomic-RMW branch otherwise). Upstream-status: candidate.
+9. `0009-vk-adreno-driver-vendor.patch` — add `driver_vendor::ADRENO`
+   (Qualcomm proprietary + Mesa Turnip driver IDs, GPU-name fallback) so
+   Snapdragon GPUs stop logging "Unknown driver vendor!" and can grow
+   vendor-specific paths. Upstream-status: candidate.
