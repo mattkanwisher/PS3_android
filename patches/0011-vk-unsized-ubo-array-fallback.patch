@@ -1,0 +1,260 @@
+Subject: vk: fall back to storage buffers when unsized UBO arrays are unsupported
+Why: the shader backends emit uniform blocks whose last member is a runtime-sized
+     array, which requires VK_EXT_shader_uniform_buffer_unsized_array. That
+     extension was requested unconditionally (with a FIXME noting there was no
+     fallback), so on drivers lacking it — every Qualcomm Adreno, i.e. every
+     Snapdragon Android device — the feature struct is silently ignored and every
+     graphics pipeline creation then fails with VK_ERROR_UNKNOWN, killing the RSX
+     worker threads. Runtime-sized arrays are always legal in storage buffers, so
+     emit the affected blocks as "readonly restrict buffer" and register them as
+     storage descriptors when the extension is missing. The extension is now also
+     actually requested (previously it was only chained as a feature struct) on
+     drivers that expose it, so those keep the uniform-block path unchanged.
+Upstream-status: candidate
+
+--- a/rpcs3/Emu/RSX/VK/vkutils/device.h
++++ b/rpcs3/Emu/RSX/VK/vkutils/device.h
+@@ -26,6 +26,10 @@
+ 		bool allow_float64 : 1;
+ 		bool allow_float16 : 1;
+ 		bool allow_int8 : 1;
++		// Runtime-sized arrays inside uniform blocks. Requires
++		// VK_EXT_shader_uniform_buffer_unsized_array; when absent the affected
++		// blocks are emitted as readonly storage buffers instead.
++		bool allow_unsized_ubo_arrays : 1;
+ 	};
+ 
+ 	struct memory_type_mapping
+--- a/rpcs3/Emu/RSX/VK/vkutils/device.cpp
++++ b/rpcs3/Emu/RSX/VK/vkutils/device.cpp
+@@ -93,6 +93,7 @@
+ 		shader_types_support.allow_float64 = !!features2.features.shaderFloat64;
+ 		shader_types_support.allow_float16 = !!shader_support_info.shaderFloat16;
+ 		shader_types_support.allow_int8    = !!shader_support_info.shaderInt8;
++		shader_types_support.allow_unsized_ubo_arrays = device_extensions.is_supported(VK_EXT_SHADER_UNIFORM_BUFFER_UNSIZED_ARRAY_EXTENSION_NAME);
+ 
+ 		custom_border_color_support.supported = !!custom_border_color_info.customBorderColors && !!custom_border_color_info.customBorderColorWithoutFormat;
+ 		custom_border_color_support.swizzle_extension_supported = border_color_swizzle_info.sType == VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BORDER_COLOR_SWIZZLE_FEATURES_EXT;
+@@ -528,6 +529,11 @@
+ 		if (pgpu->multidraw_support)
+ 		{
+ 			requested_extensions.push_back(VK_EXT_MULTI_DRAW_EXTENSION_NAME);
++		}
++
++		if (pgpu->shader_types_support.allow_unsized_ubo_arrays)
++		{
++			requested_extensions.push_back(VK_EXT_SHADER_UNIFORM_BUFFER_UNSIZED_ARRAY_EXTENSION_NAME);
+ 		}
+ 
+ 		if (pgpu->optional_features_support.conditional_rendering)
+@@ -741,12 +747,22 @@
+ 			rsx_log.notice("GPU/driver lacks support for float16 data types. All float16_t arithmetic will be emulated with float32_t.");
+ 		}
+ 
+-		// FIXME: Fall back to something. Idk how that would even work though, this really is a hard requirement
++		// Runtime-sized arrays in uniform blocks. Drivers that do not expose the
++		// extension (e.g. Qualcomm Adreno) fall back to readonly storage buffers
++		// for the affected blocks; see the shader backends.
+ 		VkPhysicalDeviceShaderUniformBufferUnsizedArrayFeaturesEXT ubo_unsized_array_feature{};
+-		ubo_unsized_array_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNIFORM_BUFFER_UNSIZED_ARRAY_FEATURES_EXT;
+-		ubo_unsized_array_feature.shaderUniformBufferUnsizedArray = VK_TRUE;
+-		ubo_unsized_array_feature.pNext = const_cast<void*>(device.pNext);
+-		device.pNext = &ubo_unsized_array_feature;
++		if (pgpu->shader_types_support.allow_unsized_ubo_arrays)
++		{
++			ubo_unsized_array_feature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_UNIFORM_BUFFER_UNSIZED_ARRAY_FEATURES_EXT;
++			ubo_unsized_array_feature.shaderUniformBufferUnsizedArray = VK_TRUE;
++			ubo_unsized_array_feature.pNext = const_cast<void*>(device.pNext);
++			device.pNext = &ubo_unsized_array_feature;
++		}
++		else
++		{
++			rsx_log.warning("GPU/driver lacks %s. Uniform blocks with runtime-sized arrays will be emitted as readonly storage buffers.",
++				VK_EXT_SHADER_UNIFORM_BUFFER_UNSIZED_ARRAY_EXTENSION_NAME);
++		}
+ 
+ 		VkPhysicalDeviceCustomBorderColorFeaturesEXT custom_border_color_features{};
+ 		if (pgpu->custom_border_color_support)
+--- a/rpcs3/Emu/RSX/VK/VKProgramPipeline.h
++++ b/rpcs3/Emu/RSX/VK/VKProgramPipeline.h
+@@ -28,6 +28,13 @@
+ 			input_type_undefined = 0xffff'ffff
+ 		};
+ 
++		// Blocks holding a runtime-sized array are emitted as uniform blocks when the
++		// driver supports VK_EXT_shader_uniform_buffer_unsized_array, and as readonly
++		// storage buffers otherwise (runtime arrays are always legal in those).
++		// Declared here so the shader backends and descriptor setup stay in agreement.
++		const char* getRuntimeArrayBlockQualifier();
++		program_input_type getRuntimeArrayBlockInputType();
++
+ 		struct bound_sampler
+ 		{
+ 			VkFormat format = VK_FORMAT_UNDEFINED;
+--- a/rpcs3/Emu/RSX/VK/VKProgramPipeline.cpp
++++ b/rpcs3/Emu/RSX/VK/VKProgramPipeline.cpp
+@@ -44,6 +44,20 @@
+ 		{
+ 			const auto ptr = std::get_if<descriptor_image_array_t>(&a);
+ 			return !!ptr && ptr->size() == b.size() && !std::memcmp(ptr->data(), b.data(), b.size_bytes());
++		}
++
++		const char* getRuntimeArrayBlockQualifier()
++		{
++			return vk::g_render_device->get_shader_types_support().allow_unsized_ubo_arrays
++				? "uniform"
++				: "readonly restrict buffer";
++		}
++
++		program_input_type getRuntimeArrayBlockInputType()
++		{
++			return vk::g_render_device->get_shader_types_support().allow_unsized_ubo_arrays
++				? input_type_uniform_buffer
++				: input_type_storage_buffer;
+ 		}
+ 
+ 		VkDescriptorType to_descriptor_type(program_input_type type)
+--- a/rpcs3/Emu/RSX/VK/VKVertexProgram.cpp
++++ b/rpcs3/Emu/RSX/VK/VKVertexProgram.cpp
+@@ -76,8 +76,9 @@
+ 	OS <<
+ 		"#version 450\n\n"
+ 		"#extension GL_EXT_scalar_block_layout : require\n"
+-		"#extension GL_EXT_uniform_buffer_unsized_array : require\n"
+-		"#extension GL_ARB_separate_shader_objects : enable\n\n";
++		<< (vk::g_render_device->get_shader_types_support().allow_unsized_ubo_arrays
++			? "#extension GL_EXT_uniform_buffer_unsized_array : require\n" : "")
++		<< "#extension GL_ARB_separate_shader_objects : enable\n\n";
+ 
+ 	glsl::insert_subheader_block(OS);
+ 
+@@ -90,7 +91,7 @@
+ 		"#define get_user_clip_config() get_vertex_context().user_clip_configuration_bits\n\n";
+ 
+ 	OS <<
+-		"layout(std430, set=0, binding=" << vk_prog->binding_table.context_buffer_location << ") uniform VertexContextBuffer\n"
++		"layout(std430, set=0, binding=" << vk_prog->binding_table.context_buffer_location << ") " << vk::glsl::getRuntimeArrayBlockQualifier() << " VertexContextBuffer\n"
+ 		"{\n"
+ 		"	vertex_context_t vertex_contexts[];\n"
+ 		"};\n\n";
+@@ -98,7 +99,7 @@
+ 	vk::glsl::program_input context_input
+ 	{
+ 		.domain = glsl::glsl_vertex_program,
+-		.type = vk::glsl::input_type_uniform_buffer,
++		.type = vk::glsl::getRuntimeArrayBlockInputType(),
+ 		.set = vk::glsl::binding_set_index_vertex,
+ 		.location = vk_prog->binding_table.context_buffer_location,
+ 		.name = "VertexContextBuffer"
+@@ -198,7 +199,7 @@
+ 			{
+ 				if (!(m_prog.ctrl & RSX_SHADER_CONTROL_INSTANCED_CONSTANTS))
+ 				{
+-					OS << "layout(std430, set=0, binding=" << vk_prog->binding_table.cbuf_location << ") uniform VertexConstantsBuffer\n";
++					OS << "layout(std430, set=0, binding=" << vk_prog->binding_table.cbuf_location << ") " << vk::glsl::getRuntimeArrayBlockQualifier() << " VertexConstantsBuffer\n";
+ 					OS << "{\n";
+ 					OS << "	vec4 vc[];\n";
+ 					OS << "};\n\n";
+--- a/rpcs3/Emu/RSX/VK/VKFragmentProgram.cpp
++++ b/rpcs3/Emu/RSX/VK/VKFragmentProgram.cpp
+@@ -104,9 +104,13 @@
+ 
+ 	std::vector<const char*> required_extensions =
+ 	{
+-		"GL_EXT_scalar_block_layout",
+-		"GL_EXT_uniform_buffer_unsized_array"
++		"GL_EXT_scalar_block_layout"
+ 	};
++
++	if (vk::g_render_device->get_shader_types_support().allow_unsized_ubo_arrays)
++	{
++		required_extensions.emplace_back("GL_EXT_uniform_buffer_unsized_array");
++	}
+ 
+ 	if (device_props.has_native_half_support)
+ 	{
+@@ -277,7 +281,7 @@
+ 
+ 	if (!properties.constant_offsets.empty())
+ 	{
+-		OS << "layout(std430, set=1, binding=" << vk_prog->binding_table.cbuf_location << ") uniform FragmentConstantsBuffer\n";
++		OS << "layout(std430, set=1, binding=" << vk_prog->binding_table.cbuf_location << ") " << vk::glsl::getRuntimeArrayBlockQualifier() << " FragmentConstantsBuffer\n";
+ 		OS << "{\n";
+ 		OS << "	vec4 fc[];\n";
+ 		OS << "};\n";
+@@ -285,12 +289,12 @@
+ 	}
+ 
+ 	OS <<
+-		"layout(std430, set=1, binding=" << vk_prog->binding_table.context_buffer_location << ") uniform FragmentStateBuffer\n"
++		"layout(std430, set=1, binding=" << vk_prog->binding_table.context_buffer_location << ") " << vk::glsl::getRuntimeArrayBlockQualifier() << " FragmentStateBuffer\n"
+ 		"{\n"
+ 		"	fragment_context_t fs_contexts[];\n"
+ 		"};\n\n";
+ 
+-	OS << "layout(std430, set=1, binding=" << vk_prog->binding_table.tex_param_location << ") uniform TextureParametersBuffer\n";
++	OS << "layout(std430, set=1, binding=" << vk_prog->binding_table.tex_param_location << ") " << vk::glsl::getRuntimeArrayBlockQualifier() << " TextureParametersBuffer\n";
+ 	OS << "{\n";
+ 	OS << "	sampler_info texture_parameters[];\n";
+ 	OS << "};\n\n";
+@@ -310,18 +314,18 @@
+ 	{
+ 		in.location = vk_prog->binding_table.cbuf_location;
+ 		in.name = "FragmentConstantsBuffer";
+-		in.type = vk::glsl::input_type_uniform_buffer,
++		in.type = vk::glsl::getRuntimeArrayBlockInputType(),
+ 		inputs.push_back(in);
+ 	}
+ 
+ 	in.location = vk_prog->binding_table.context_buffer_location;
+ 	in.name = "FragmentStateBuffer";
+-	in.type = vk::glsl::input_type_uniform_buffer;
++	in.type = vk::glsl::getRuntimeArrayBlockInputType();
+ 	inputs.push_back(in);
+ 
+ 	in.location = vk_prog->binding_table.tex_param_location;
+ 	in.name = "TextureParametersBuffer";
+-	in.type = vk::glsl::input_type_uniform_buffer;
++	in.type = vk::glsl::getRuntimeArrayBlockInputType();
+ 	inputs.push_back(in);
+ 
+ 	in.location = vk_prog->binding_table.polygon_stipple_params_location;
+--- a/rpcs3/Emu/RSX/VK/VKShaderInterpreter.cpp
++++ b/rpcs3/Emu/RSX/VK/VKShaderInterpreter.cpp
+@@ -308,7 +308,8 @@
+ 		builder <<
+ 		"#version 450\n"
+ 		"#extension GL_EXT_scalar_block_layout : require\n"
+-		"#extension GL_EXT_uniform_buffer_unsized_array : require\n"
++		<< (vk::g_render_device->get_shader_types_support().allow_unsized_ubo_arrays
++			? "#extension GL_EXT_uniform_buffer_unsized_array : require\n" : "") <<
+ 		"#extension GL_ARB_separate_shader_objects : enable\n\n";
+ 
+ 		::glsl::insert_subheader_block(builder);
+--- a/rpcs3/Emu/RSX/VK/VKGSRender.cpp
++++ b/rpcs3/Emu/RSX/VK/VKGSRender.cpp
+@@ -506,14 +506,19 @@
+ 	}
+ 
+ 	// VRAM allocation
++	// Blocks with runtime-sized arrays are emitted as storage buffers when the driver
++	// lacks VK_EXT_shader_uniform_buffer_unsized_array, so their heaps need the usage bit.
++	const VkBufferUsageFlags context_buffer_usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
++		(m_device->get_shader_types_support().allow_unsized_ubo_arrays ? 0 : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
++
+ 	// This first set is bound persistently, so grow notifications are enabled.
+ 	m_attrib_ring_info.create(VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT, VK_ATTRIB_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_default, "attrib buffer", 0x400000, VK_TRUE);
+-	m_fragment_env_ring_info.create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "fragment env buffer", 0x10000, VK_TRUE);
+-	m_vertex_env_ring_info.create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_default, "vertex env buffer", 0x10000, VK_TRUE);
+-	m_fragment_texture_params_ring_info.create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "fragment texture params buffer", 0x10000, VK_TRUE);
++	m_fragment_env_ring_info.create(context_buffer_usage, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "fragment env buffer", 0x10000, VK_TRUE);
++	m_vertex_env_ring_info.create(context_buffer_usage, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_default, "vertex env buffer", 0x10000, VK_TRUE);
++	m_fragment_texture_params_ring_info.create(context_buffer_usage, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "fragment texture params buffer", 0x10000, VK_TRUE);
+ 	m_vertex_layout_ring_info.create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "vertex layout buffer", 0x10000, VK_TRUE);
+-	m_fragment_constants_ring_info.create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "fragment constants buffer", 0x10000, VK_TRUE);
+-	m_transform_constants_ring_info.create(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_TRANSFORM_CONSTANTS_BUFFER_SIZE_M * 0x100000, vk::heap_pool_default, "transform constants buffer", 0x10000, VK_TRUE);
++	m_fragment_constants_ring_info.create(context_buffer_usage, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "fragment constants buffer", 0x10000, VK_TRUE);
++	m_transform_constants_ring_info.create(context_buffer_usage, VK_TRANSFORM_CONSTANTS_BUFFER_SIZE_M * 0x100000, vk::heap_pool_default, "transform constants buffer", 0x10000, VK_TRUE);
+ 	m_raster_env_ring_info.create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_UBO_RING_BUFFER_SIZE_M * 0x100000, vk::heap_pool_low_latency, "raster env buffer", 0x10000, VK_TRUE);
+ 	// Below here, we do not bind these persistently. Each draw call specifies the range manually so we do not need heap_grow notifications.
+ 	m_instancing_buffer_ring_info.create(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_TRANSFORM_CONSTANTS_BUFFER_SIZE_M * 0x100000, vk::heap_pool_default, "instancing data buffer");

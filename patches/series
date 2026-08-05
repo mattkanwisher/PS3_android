@@ -9,3 +9,4 @@
 0008-simd-qrdmx-guard.patch
 0009-vk-adreno-driver-vendor.patch
 0010-cntfrq-sigill-safe.patch
+0011-vk-unsized-ubo-array-fallback.patch
