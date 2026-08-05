@@ -49,6 +49,8 @@ The rpcs3 submodule ships the RPCS3 team's own homebrew test programs in `rpcs3/
 
 Drop one into `Android/data/nu.hyperworks.cellstation/files/games/` and boot it from the app, or via the intent contract (see [docs/INTENTS.md](docs/INTENTS.md)).
 
+Verified on the Android emulator (Pixel 3a API 34, arm64): `gs_gcm_tetris.elf` boots through ELF load → PPU LLVM recompilation → firmware SPRX loading → game code executing (its `sys_tty` output and RSX flips visible in `adb logcat -s RPCS3`). The emulator's Vulkan is rejected by the core, so it runs on the Null renderer — on-screen output needs a device with a real Vulkan driver (the Snapdragon targets).
+
 ## Attribution & license
 
 This project is licensed under **GPL-2.0** ([LICENSE](LICENSE)), inherited from RPCS3.
