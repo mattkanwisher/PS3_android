@@ -1,0 +1,93 @@
+Subject: vk: detect Qualcomm Adreno as its own driver vendor
+Why: rpcs3 has no driver_vendor entry for Qualcomm, so every Adreno device
+     (i.e. all Snapdragon Android handhelds) falls through to "unknown",
+     logging "Unsupported device: Adreno (TM) 740" and "Unknown driver
+     vendor!", and no vendor-specific path can ever apply to it. Add
+     driver_vendor::ADRENO, detect it from VK_DRIVER_ID_QUALCOMM_PROPRIETARY /
+     VK_DRIVER_ID_MESA_TURNIP (and by GPU name where driverID is unavailable),
+     and give it arms in the existing vendor switches. Behavior for other
+     vendors is unchanged; this is the prerequisite for adding real Adreno
+     workarounds.
+Upstream-status: candidate
+
+diff --git a/rpcs3/Emu/RSX/VK/VKCompute.cpp b/rpcs3/Emu/RSX/VK/VKCompute.cpp
+index 033e19f..7e7e3c3 100644
+--- a/rpcs3/Emu/RSX/VK/VKCompute.cpp
++++ b/rpcs3/Emu/RSX/VK/VKCompute.cpp
+@@ -58,7 +58,9 @@ namespace vk
+ 			case vk::driver_vendor::V3DV:
+ 			case vk::driver_vendor::PANVK:
+ 			case vk::driver_vendor::ARM_MALI:
+-				// TODO: Actually bench this. Using 32 for now to match other common configurations.
++			case vk::driver_vendor::ADRENO:
++				// TODO: Actually bench this. Adreno waves are 64 or 128 wide depending on the
++				// shader, so 32 divides evenly; matches the other mobile configurations.
+ 			case vk::driver_vendor::DOZEN:
+ 				// Actual optimal size depends on the D3D device. Use 32 since it should work well on both AMD and NVIDIA
+ 			case vk::driver_vendor::NVIDIA:
+diff --git a/rpcs3/Emu/RSX/VK/VKHelpers.cpp b/rpcs3/Emu/RSX/VK/VKHelpers.cpp
+index 9360215..be0bb19 100644
+--- a/rpcs3/Emu/RSX/VK/VKHelpers.cpp
++++ b/rpcs3/Emu/RSX/VK/VKHelpers.cpp
+@@ -149,6 +149,9 @@ namespace vk
+ 		case driver_vendor::ARM_MALI:
+ 			// Needs more testing
+ 			break;
++		case driver_vendor::ADRENO:
++			// Qualcomm mobile GPUs; needs more testing
++			break;
+ 		default:
+ 			rsx_log.warning("Unsupported device: %s", gpu_name);
+ 		}
+diff --git a/rpcs3/Emu/RSX/VK/VKRenderTargets.h b/rpcs3/Emu/RSX/VK/VKRenderTargets.h
+index 7da26f3..557192a 100644
+--- a/rpcs3/Emu/RSX/VK/VKRenderTargets.h
++++ b/rpcs3/Emu/RSX/VK/VKRenderTargets.h
+@@ -189,6 +189,7 @@ namespace vk
+ 			case driver_vendor::HONEYKRISP:
+ 			case driver_vendor::PANVK:
+ 			case driver_vendor::ARM_MALI:
++			case driver_vendor::ADRENO:
+ 				break;
+ 			}
+ 
+diff --git a/rpcs3/Emu/RSX/VK/vkutils/chip_class.h b/rpcs3/Emu/RSX/VK/vkutils/chip_class.h
+index 3f7d39e..ddcf026 100644
+--- a/rpcs3/Emu/RSX/VK/vkutils/chip_class.h
++++ b/rpcs3/Emu/RSX/VK/vkutils/chip_class.h
+@@ -57,7 +57,8 @@ namespace vk
+ 		V3DV,
+ 		HONEYKRISP,
+ 		PANVK,
+-		ARM_MALI
++		ARM_MALI,
++		ADRENO
+ 	};
+ 
+ 	driver_vendor get_driver_vendor();
+diff --git a/rpcs3/Emu/RSX/VK/vkutils/device.cpp b/rpcs3/Emu/RSX/VK/vkutils/device.cpp
+index 58fcc6e..a5ba4df 100644
+--- a/rpcs3/Emu/RSX/VK/vkutils/device.cpp
++++ b/rpcs3/Emu/RSX/VK/vkutils/device.cpp
+@@ -344,6 +344,11 @@ namespace vk
+ 				return driver_vendor::ARM_MALI;
+ 			}
+ 
++			if (gpu_name.find("Adreno") != umax || gpu_name.find("Turnip") != umax)
++			{ // e.g. "Adreno (TM) 740" (proprietary) or mesa's "Turnip Adreno (TM) 740"
++				return driver_vendor::ADRENO;
++			}
++
+ 			return driver_vendor::unknown;
+ 		}
+ 		else
+@@ -375,6 +380,9 @@ namespace vk
+ 				return driver_vendor::PANVK;
+ 			case VK_DRIVER_ID_ARM_PROPRIETARY:
+ 				return driver_vendor::ARM_MALI;
++			case VK_DRIVER_ID_QUALCOMM_PROPRIETARY:
++			case VK_DRIVER_ID_MESA_TURNIP:
++				return driver_vendor::ADRENO;
+ 			default:
+ 				// Mobile?
+ 				return driver_vendor::unknown;
