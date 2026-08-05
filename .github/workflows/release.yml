@@ -8,6 +8,9 @@ name: release
 on:
   push:
     tags: ['v*']
+  # Dispatched at a tag ref by tag.yml (GITHUB_TOKEN tag pushes don't fire
+  # the push trigger above).
+  workflow_dispatch:
 
 env:
   FFMPEG_VER: n7.1.1

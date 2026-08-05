@@ -1,0 +1,40 @@
+name: tag
+
+# Dev utility: create a tag via workflow_dispatch and kick the release
+# workflow at it. Exists because some dev environments can push branches but
+# not tags through their git proxy. Tags pushed with GITHUB_TOKEN do not
+# fire on:push workflows, so this dispatches release.yml explicitly.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: tag name (e.g. v0.1.0)
+        required: true
+      sha:
+        description: commit sha to tag
+        required: true
+
+jobs:
+  tag-and-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag
+        run: |
+          set -eux
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com \
+            tag -a "${{ inputs.tag }}" "${{ inputs.sha }}" -m "${{ inputs.tag }}"
+          git push origin "refs/tags/${{ inputs.tag }}"
+
+      - name: Dispatch release workflow at the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --ref "refs/tags/${{ inputs.tag }}"
