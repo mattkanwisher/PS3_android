@@ -71,6 +71,30 @@ void mouse_gyro_handler::apply_gyro(const std::shared_ptr<Pad>&)
 {
 }
 
+// Upstream implements this in the Qt layer (main_window.cpp) with a
+// QEventLoop on the GUI thread; emucore calls it to poll a condition.
+// This mirrors upstream's own non-GUI-thread branch.
+void qt_events_aware_op(int repeat_duration_ms, std::function<bool()> wrapped_op)
+{
+	ensure(wrapped_op);
+
+	while (!wrapped_op())
+	{
+		if (repeat_duration_ms == 0)
+		{
+			std::this_thread::yield();
+		}
+		else if (thread_ctrl::get_current())
+		{
+			thread_ctrl::wait_for(repeat_duration_ms * 1000);
+		}
+		else
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(repeat_duration_ms));
+		}
+	}
+}
+
 // Defined in Utilities/File.cpp for the Android embedder to fill in.
 extern std::string g_android_executable_dir;
 extern std::string g_android_config_dir;
