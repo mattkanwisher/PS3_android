@@ -134,6 +134,12 @@
     <string name="row_gpu_driver">GPU driver</string>
     <string name="row_gpu_driver_sub">Takes effect after restarting the app. Turnip recommended on Adreno.</string>
     <string name="seg_on">On</string>
+    <string name="row_perf_overlay">Performance overlay</string>
+    <string name="row_perf_overlay_sub">Draws the emulator\'s own counters in a corner of the game. Useful for telling a game that is genuinely running at full speed from one that only looks like it. Drawing it costs a little performance itself.</string>
+    <string name="row_perf_detail">Overlay detail</string>
+    <string name="row_perf_detail_sub">Minimal is the frame rate on its own. Low adds total CPU load, Medium splits that into PPU/SPU/RSX, High also shows frame time in milliseconds. None draws no text.</string>
+    <string name="row_perf_position">Overlay corner</string>
+    <string name="row_perf_position_sub">Where the counters sit. Move them if they cover something the game draws in that corner.</string>
     <string name="cat_controls">Controls</string>
     <string name="row_face_buttons">Face buttons</string>
     <string name="row_face_buttons_sub">Positional puts Cross on the bottom on Nintendo-labeled pads (the Thor\'s built-in controller). Ignored once a custom mapping is saved.</string>

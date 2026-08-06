@@ -235,6 +235,8 @@ class SettingsActivity : AppCompatActivity() {
             ) { i -> EmuBridge.setStretchToDisplayArea(i == 1, persist = true) }
         )
 
+        renderPerfOverlay()
+
         row(
             getString(R.string.row_online_data),
             getString(R.string.row_online_data_sub),
@@ -243,6 +245,60 @@ class SettingsActivity : AppCompatActivity() {
                 listOf(getString(R.string.seg_off), getString(R.string.seg_on)),
                 if (Settings.onlineData(this)) 1 else 0
             ) { i -> Settings.setOnlineData(this, i == 1) }
+        )
+    }
+
+    /**
+     * The core's own RSX performance overlay, driven straight from config.yml.
+     * These are dynamic settings, so the core picks them up on a running game;
+     * nothing here is drawn by the app.
+     *
+     * Detail and corner only appear once the overlay is on, so the pane stays
+     * short for the common case of "just show me the frame rate".
+     */
+    private fun renderPerfOverlay() {
+        val enabled = EmuBridge.globalConfigGet(PERF_ENABLED) == "true"
+        row(
+            getString(R.string.row_perf_overlay),
+            getString(R.string.row_perf_overlay_sub),
+            Ui.segmented(
+                this,
+                listOf(getString(R.string.seg_off), getString(R.string.seg_on)),
+                if (enabled) 1 else 0
+            ) { i ->
+                if (EmuBridge.globalConfigSet(PERF_ENABLED, if (i == 1) "true" else "false")) {
+                    renderPane()
+                } else {
+                    Toast.makeText(this, R.string.game_settings_rejected, Toast.LENGTH_LONG).show()
+                }
+            }
+        )
+
+        if (!enabled) return
+
+        perfOverlayChoice(PERF_LEVEL, R.string.row_perf_detail, R.string.row_perf_detail_sub)
+        perfOverlayChoice(PERF_POSITION, R.string.row_perf_position, R.string.row_perf_position_sub)
+    }
+
+    /** Segmented picker over whatever values the core accepts for [path]. */
+    private fun perfOverlayChoice(path: String, label: Int, hint: Int) {
+        val options = EmuBridge.globalConfigOptions(path)
+            .split('\n')
+            .filter { it.isNotBlank() }
+
+        // A setting rpcs3 renamed or dropped upstream: skip it rather than
+        // render a control that cannot resolve to a config node.
+        if (options.isEmpty()) return
+
+        val selected = options.indexOf(EmuBridge.globalConfigGet(path)).coerceAtLeast(0)
+        row(
+            getString(label),
+            getString(hint),
+            Ui.segmented(this, options, selected) { i ->
+                if (!EmuBridge.globalConfigSet(path, options[i])) {
+                    Toast.makeText(this, R.string.game_settings_rejected, Toast.LENGTH_LONG).show()
+                }
+            }
         )
     }
 
@@ -406,5 +462,11 @@ class SettingsActivity : AppCompatActivity() {
 
     private companion object {
         const val STATE_CATEGORY = "category"
+
+        // "Section/Setting" paths as spelled in config.yml; the overlay's
+        // section is nested inside Video.
+        const val PERF_ENABLED = "Video/Performance Overlay/Enabled"
+        const val PERF_LEVEL = "Video/Performance Overlay/Detail level"
+        const val PERF_POSITION = "Video/Performance Overlay/Position"
     }
 }

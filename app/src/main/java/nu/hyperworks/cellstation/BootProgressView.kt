@@ -115,6 +115,15 @@ class BootProgressView(context: Context) : FrameLayout(context) {
         val total = parts[1].toIntOrNull() ?: 0
         val text = parts[2]
 
+        // The core leaves its counters sitting at done == total once a phase
+        // finishes rather than zeroing them, so "still reporting progress" is not
+        // the same as "still working". Without this the overlay stays up over the
+        // running game forever.
+        if (total > 0 && done >= total) {
+            hide()
+            return
+        }
+
         // A new phase (or a new batch of work within one) restarts the estimate;
         // carrying the old elapsed time over would badly skew the first guess.
         if (text != phaseText || total != lastTotal) {

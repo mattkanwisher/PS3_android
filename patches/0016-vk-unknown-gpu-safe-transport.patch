@@ -1,0 +1,20 @@
+--- a/rpcs3/Emu/RSX/VK/VKTexture.cpp
++++ b/rpcs3/Emu/RSX/VK/VKTexture.cpp
+@@ -649,7 +649,16 @@
+ 				const u32 typeless_h = src_rect.height() + dst_rect.height();
+ 
+ 				const auto gpu_family = vk::get_chip_family();
+-				const bool use_unsafe_transport = !g_cfg.video.strict_rendering_mode && (gpu_family != chip_class::NV_generic && gpu_family < chip_class::NV_turing);
++				// chip_class::unknown is 0, so any GPU whose vendor get_chip_family()
++				// does not recognise (Qualcomm 0x5143, ARM, Imagination...) compares
++				// less than NV_turing and is silently opted into the pre-Turing
++				// NVIDIA direct-transfer hack this condition means to select. On
++				// Adreno that hack corrupts the result — Skate's paved ground
++				// samples as an untextured flat surface until strict rendering mode
++				// forces the safe path. Only take the hack on hardware known to want it.
++				const bool use_unsafe_transport = !g_cfg.video.strict_rendering_mode &&
++					gpu_family != chip_class::unknown &&
++					(gpu_family != chip_class::NV_generic && gpu_family < chip_class::NV_turing);
+ 
+ 				switch (src->format())
+ 				{

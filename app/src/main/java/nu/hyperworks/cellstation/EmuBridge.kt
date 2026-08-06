@@ -74,6 +74,23 @@ object EmuBridge {
     /** Deletes the override file so the game follows the global config again. */
     external fun gameConfigReset(serial: String): Boolean
 
+    /**
+     * The global config (config/config.yml), addressed by the same
+     * "Section/Setting" paths as the per-game calls. Nested sections are
+     * spelled out in full, e.g. "Video/Performance Overlay/Enabled".
+     */
+    external fun globalConfigGet(path: String): String
+
+    /** Accepted values for [path], newline-separated; empty when unknown. */
+    external fun globalConfigOptions(path: String): String
+
+    /**
+     * Writes [path] to config.yml. Settings the core marks dynamic are also
+     * applied to the running game; the rest wait for the next boot. Returns
+     * false when the path or the value was rejected.
+     */
+    external fun globalConfigSet(path: String, value: String): Boolean
+
     /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */
     external fun boot(path: String): Int
 

@@ -268,6 +268,11 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
 
     override fun onResume() {
         super.onResume()
+        // Re-read on every resume, not just at boot: changing the face-button
+        // setting (or the handheld's own controller-style switch) while a game
+        // is suspended should take effect on the way back in, without making
+        // the player quit and relaunch to find out whether it helped.
+        pad.keyMapping = KeyMap.load(this)
         EmuBridge.setPadConnected(true)
     }
 

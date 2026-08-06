@@ -115,6 +115,14 @@ extern std::string g_android_cache_dir;
 std::string g_input_config_override;
 cfg_input_configurations g_cfg_input_configs;
 
+// Rebuilds the RSX performance overlay from g_cfg. Declared the way
+// main_application.cpp declares it (rather than pulling in the overlay
+// headers), since that is the only piece of OnEmuSettingsChange we need.
+namespace rsx::overlays
+{
+	extern void reset_performance_overlay();
+}
+
 // RtMidi's Android backend calls JNI_GetCreatedJavaVMs, which is not a public
 // NDK export. We know our VM from JNI_OnLoad, so provide the symbol here.
 static JavaVM* g_java_vm = nullptr;
@@ -567,6 +575,32 @@ namespace
 		return current == &root ? nullptr : current;
 	}
 
+	// Newline-separated list of accepted values for a config path, taken from a
+	// defaults-constructed tree so it does not depend on what is on disk. Empty
+	// when the path does not resolve or the type has no fixed value list.
+	std::string config_options(const std::string& path)
+	{
+		cfg_root defaults;
+		const cfg::_base* node = find_config_node(defaults, path);
+
+		if (!node)
+			return {};
+
+		// to_list() covers enums; booleans have no list of their own.
+		if (node->get_type() == cfg::type::_bool)
+			return "false\ntrue";
+
+		std::string result;
+
+		for (const std::string& value : node->to_list())
+		{
+			if (!result.empty()) result += '\n';
+			result += value;
+		}
+
+		return result;
+	}
+
 	// Per-game config as the core will see it: the global config with the
 	// game's overrides applied on top, matching what Emulator::Load does for
 	// cfg_mode::custom.
@@ -927,30 +961,7 @@ JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigGet
 // without duplicating rpcs3's enum names.
 JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigOptions(JNIEnv* env, jclass, jstring jpath)
 {
-	const std::string path = jstr(env, jpath);
-
-	cfg_root defaults;
-	const cfg::_base* node = find_config_node(defaults, path);
-
-	if (!node)
-		return env->NewStringUTF("");
-
-	std::string result;
-
-	if (node->get_type() == cfg::type::_bool)
-	{
-		result = "false\ntrue";
-	}
-	else
-	{
-		for (const std::string& value : node->to_list())
-		{
-			if (!result.empty()) result += '\n';
-			result += value;
-		}
-	}
-
-	return env->NewStringUTF(result.c_str());
+	return env->NewStringUTF(config_options(jstr(env, jpath)).c_str());
 }
 
 JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigSet(JNIEnv* env, jclass, jstring jserial, jstring jpath, jstring jvalue)
@@ -1027,6 +1038,77 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigRe
 	}
 
 	cellstation_log.success("Removed the custom config for %s", serial);
+	return JNI_TRUE;
+}
+
+// The same three operations against the global config (config/config.yml),
+// addressed by the same "Section/Setting" paths. Nested sections are spelled
+// out in full, e.g. "Video/Performance Overlay/Enabled" — find_config_node
+// walks every '/'-separated component, so depth is not special-cased here.
+
+JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_globalConfigGet(JNIEnv* env, jclass, jstring jpath)
+{
+	const std::string path = jstr(env, jpath);
+
+	auto cfg = load_global_config();
+	const cfg::_base* node = find_config_node(*cfg, path);
+
+	return env->NewStringUTF(node ? node->to_string().c_str() : "");
+}
+
+JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_globalConfigOptions(JNIEnv* env, jclass, jstring jpath)
+{
+	return env->NewStringUTF(config_options(jstr(env, jpath)).c_str());
+}
+
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_globalConfigSet(JNIEnv* env, jclass, jstring jpath, jstring jvalue)
+{
+	const std::string path = jstr(env, jpath);
+	const std::string value = jstr(env, jvalue);
+
+	auto cfg = load_global_config();
+	cfg::_base* node = find_config_node(*cfg, path);
+
+	if (!node || !node->from_string(value))
+	{
+		cellstation_log.error("Rejected global setting %s = '%s'", path, value);
+		return JNI_FALSE;
+	}
+
+	// A running game holds its own copy of the config (Emu.Load reloads it at
+	// boot), so persisting alone would leave the change waiting for the next
+	// launch. Settings rpcs3 marks dynamic are re-read while a game runs, so
+	// assign the live one too, as setStretchToDisplayArea does. Non-dynamic
+	// settings are deliberately left for the next boot; the core makes no
+	// promise about picking those up mid-game.
+	//
+	// Done before the write because SaveSettings snapshots g_cfg into
+	// g_backup_cfg (what the in-game home menu diffs against): updating the
+	// live value first keeps the two in step. SaveSettings also merges into
+	// g_cfg itself, but only when g_cfg came from config.yml — a game booted
+	// with a per-game override is left out, which is exactly the case this
+	// assignment covers.
+	cfg::_base* live = find_config_node(g_cfg, path);
+	const bool applied_live = live && live->get_is_dynamic();
+
+	if (applied_live)
+	{
+		live->from_string(value);
+	}
+
+	save_global_config(*cfg);
+
+	if (applied_live)
+	{
+		// The perf overlay is not polled per frame: it is created, configured
+		// and torn down by reset_performance_overlay(), which upstream calls
+		// from main_application::OnEmuSettingsChange after any settings edit.
+		// Do the same, on the main thread, so a live change actually shows up.
+		// It is a no-op when no renderer is up.
+		g_pump.push([]() { rsx::overlays::reset_performance_overlay(); });
+	}
+
+	cellstation_log.success("Global setting: %s = %s (live: %s)", path, value, applied_live);
 	return JNI_TRUE;
 }
 
