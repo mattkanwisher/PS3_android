@@ -332,6 +332,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderFolders() {
+        pane.addView(Ui.actionButton(this, getString(R.string.add_scan_folder), primary = true) {
+            pickScanFolder.launch(null)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(12) }
+        })
+
         // Built-in roots are always scanned; show them so nobody wonders where
         // games are picked up from.
         for (root in GameLibrary.searchRoots()) {
@@ -356,14 +364,6 @@ class SettingsActivity : AppCompatActivity() {
                 }
             )
         }
-
-        pane.addView(Ui.actionButton(this, getString(R.string.add_scan_folder), primary = true) {
-            pickScanFolder.launch(null)
-        }.apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply { topMargin = dp(12) }
-        })
 
         if (Settings.hiddenGames(this).isNotEmpty()) {
             pane.addView(Ui.actionButton(
