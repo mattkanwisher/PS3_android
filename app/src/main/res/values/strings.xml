@@ -98,6 +98,10 @@
     <string name="row_gpu_driver_sub">Takes effect after restarting the app. Turnip recommended on Adreno.</string>
     <string name="seg_on">On</string>
     <string name="cat_controls">Controls</string>
+    <string name="row_face_buttons">Face buttons</string>
+    <string name="row_face_buttons_sub">Positional puts Cross on the bottom on Nintendo-labeled pads (the Thor\'s built-in controller). Ignored once a custom mapping is saved.</string>
+    <string name="face_by_label">By label</string>
+    <string name="face_positional">Positional</string>
     <string name="row_overlay_opacity">On-screen controller opacity</string>
     <string name="row_overlay_opacity_sub">How visible the touch controls are over the game.</string>
     <string name="row_overlay_scale">On-screen controller size</string>
@@ -107,7 +111,6 @@
     <string name="mapping_subtitle">Tap a control, then press the physical button to bind it. Sticks and analog triggers map automatically.</string>
     <string name="preset_standard">Standard</string>
     <string name="preset_swapped">Nintendo swap</string>
-    <string name="preset_reset">Reset</string>
     <string name="mapping_applied">Preset applied.</string>
     <string name="mapping_unbound">Not bound</string>
     <string name="mapping_press_now">Press a button on your controller…\n(Back on the touchscreen cancels)</string>

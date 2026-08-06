@@ -246,6 +246,19 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
 
+        // The Thor's built-in pad reports Nintendo-labeled key codes; positional
+        // mapping puts Cross on the bottom regardless. A saved custom mapping
+        // (Map controller buttons) takes precedence over this switch.
+        row(
+            getString(R.string.row_face_buttons),
+            getString(R.string.row_face_buttons_sub),
+            Ui.segmented(
+                this,
+                listOf(getString(R.string.face_by_label), getString(R.string.face_positional)),
+                if (Settings.nintendoLayout(this)) 1 else 0
+            ) { i -> Settings.setNintendoLayout(this, i == 1) }
+        )
+
         row(
             getString(R.string.row_overlay_opacity),
             getString(R.string.row_overlay_opacity_sub),

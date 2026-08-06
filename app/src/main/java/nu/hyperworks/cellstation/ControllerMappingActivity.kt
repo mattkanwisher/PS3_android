@@ -39,11 +39,13 @@ class ControllerMappingActivity : AppCompatActivity() {
             setPadding(0, dp(4), 0, dp(14))
         })
 
-        // Presets row.
+        // Presets clear any custom bindings and set the face-buttons switch
+        // (Settings → Controls), keeping the two in agreement.
         val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        fun preset(label: String, map: Map<Int, Int>?) {
+        fun preset(label: String, nintendo: Boolean) {
             presets.addView(Ui.actionButton(this, label, primary = false) {
-                if (map == null) KeyMap.reset(this) else KeyMap.save(this, map)
+                KeyMap.reset(this)
+                Settings.setNintendoLayout(this, nintendo)
                 mapping = KeyMap.load(this).toMutableMap()
                 renderRows()
                 Toast.makeText(this, R.string.mapping_applied, Toast.LENGTH_SHORT).show()
@@ -51,9 +53,8 @@ class ControllerMappingActivity : AppCompatActivity() {
                 marginEnd = dp(8)
             })
         }
-        preset(getString(R.string.preset_standard), KeyMap.DEFAULT)
-        preset(getString(R.string.preset_swapped), KeyMap.SWAPPED)
-        preset(getString(R.string.preset_reset), null)
+        preset(getString(R.string.preset_standard), nintendo = false)
+        preset(getString(R.string.preset_swapped), nintendo = true)
         column.addView(presets)
         column.addView(Ui.divider(this, vertical = false).apply {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)

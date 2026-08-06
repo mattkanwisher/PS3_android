@@ -69,7 +69,10 @@ object KeyMap {
 
     fun load(context: Context): Map<Int, Int> {
         val raw = context.getSharedPreferences("cellstation", Context.MODE_PRIVATE)
-            .getString(KEY, null) ?: return DEFAULT
+            .getString(KEY, null)
+            // No custom map: the face-buttons setting (Settings → Controls)
+            // picks between the two stock layouts.
+            ?: return if (Settings.nintendoLayout(context)) SWAPPED else DEFAULT
         return try {
             val json = JSONObject(raw)
             val out = HashMap<Int, Int>(json.length())
