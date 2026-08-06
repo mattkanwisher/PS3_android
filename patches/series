@@ -14,4 +14,3 @@
 0013-cubeb-default-device-fallback.patch
 0014-vk-adreno-gpu-memory-management.patch
 0015-overlay-fonts-android-system-fonts.patch
-0016-jit-release-address-space-android.patch
