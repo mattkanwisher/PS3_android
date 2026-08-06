@@ -56,6 +56,11 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
             overlay = TouchOverlayView(this, pad).also { frame.addView(it) }
         }
 
+        // Above the pad overlay: a cold boot compiles the whole game and can run
+        // for minutes with nothing on screen, which is indistinguishable from a
+        // hang. Hides itself whenever the core reports no work in progress.
+        frame.addView(BootProgressView(this))
+
         setContentView(frame)
         surfaceView.holder.addCallback(this)
 

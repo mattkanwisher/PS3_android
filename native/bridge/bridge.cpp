@@ -14,6 +14,7 @@
 #include "Emu/System.h"
 #include "Emu/system_config.h"
 #include "Emu/system_utils.hpp"
+#include "Emu/system_progress.hpp"
 #include "Emu/vfs_config.h"
 #include "Emu/IdManager.h"
 #include "Emu/VFS.h"
@@ -419,7 +420,23 @@ namespace
 		callbacks.enable_disc_insert = [](bool) {};
 		callbacks.handle_taskbar_progress = [](s32, s32) {};
 
-		callbacks.get_localized_string    = [](localized_string_id, const char*) -> std::string { return {}; };
+		// Only the strings the boot overlay shows. Everything else stays empty,
+		// as it was — the app supplies its own text for anything it renders.
+		callbacks.get_localized_string = [](localized_string_id id, const char*) -> std::string
+		{
+			switch (id)
+			{
+			case localized_string_id::PROGRESS_DIALOG_SCANNING_PPU_EXECUTABLE: return "Scanning game code";
+			case localized_string_id::PROGRESS_DIALOG_ANALYZING_PPU_EXECUTABLE: return "Analyzing game code";
+			case localized_string_id::PROGRESS_DIALOG_SCANNING_PPU_MODULES: return "Scanning modules";
+			case localized_string_id::PROGRESS_DIALOG_LOADING_PPU_MODULES: return "Loading compiled modules";
+			case localized_string_id::PROGRESS_DIALOG_COMPILING_PPU_MODULES: return "Compiling game code";
+			case localized_string_id::PROGRESS_DIALOG_LINKING_PPU_MODULES: return "Linking modules";
+			case localized_string_id::PROGRESS_DIALOG_APPLYING_PPU_CODE: return "Applying game code";
+			case localized_string_id::PROGRESS_DIALOG_BUILDING_SPU_CACHE: return "Building SPU cache";
+			default: return {};
+			}
+		};
 		callbacks.get_localized_u32string = [](localized_string_id, const char*) -> std::u32string { return {}; };
 		callbacks.get_localized_setting   = [](const cfg::_base*, u32) -> std::string { return {}; };
 
@@ -844,6 +861,47 @@ JNIEXPORT jlong JNICALL Java_nu_hyperworks_cellstation_EmuBridge_clearGameCache(
 
 	cellstation_log.success("Cleared %s cache (%lluK)", serial, freed / 1024);
 	return static_cast<jlong>(freed);
+}
+
+// Boot progress, for the loading overlay. The core already tracks this — it is
+// what drives the desktop GUI's progress dialog — so this just reads the same
+// globals. Two counters exist: "pieces" (ptotal/pdone) count compiled PPU/SPU
+// modules, "files" (ftotal/fdone) count file operations like a firmware or disc
+// install. The desktop dialog prefers pieces when a compile is running, so
+// mirror that rather than inventing a different rule.
+//
+// Returns "done\ttotal\ttext", or "" when nothing is in progress.
+JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_bootProgress(JNIEnv* env, jclass)
+{
+	const u32 ptotal = g_progr_ptotal;
+	const u32 pdone = g_progr_pdone;
+	const u32 ftotal = g_progr_ftotal;
+	const u32 fdone = g_progr_fdone;
+
+	const std::string text = g_progr_text;
+
+	u32 done = 0;
+	u32 total = 0;
+
+	if (ptotal)
+	{
+		done = pdone;
+		total = ptotal;
+	}
+	else if (ftotal)
+	{
+		done = fdone;
+		total = ftotal;
+	}
+
+	// A phase can publish text before it knows its totals; still worth showing,
+	// so treat text alone as progress rather than reporting nothing.
+	if (!total && text.empty())
+	{
+		return env->NewStringUTF("");
+	}
+
+	return env->NewStringUTF(fmt::format("%u\t%u\t%s", done, total, text).c_str());
 }
 
 // Per-game settings live in config/custom_configs/config_<SERIAL>.yml, which

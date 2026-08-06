@@ -47,6 +47,14 @@ object EmuBridge {
     external fun clearGameCache(serial: String): Long
 
     /**
+     * Current boot/compile progress as "done\ttotal\ttext", or "" when nothing
+     * is in progress. Backed by the same counters that drive rpcs3's desktop
+     * progress dialog, so it covers PPU/SPU compilation as well as firmware and
+     * disc installs.
+     */
+    external fun bootProgress(): String
+
+    /**
      * Per-game settings (config/custom_configs/config_<SERIAL>.yml). The core
      * applies these on top of the global config when booting, so a game that
      * needs a compatibility setting doesn't impose it on the whole library.

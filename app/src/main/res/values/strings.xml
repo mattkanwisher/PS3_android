@@ -25,6 +25,12 @@
     <string name="cache_cleared">Cache cleared — %1$s freed.</string>
     <string name="cache_empty">No cached data for this game.</string>
     <string name="sheet_game_settings">Game settings</string>
+    <string name="boot_working">Preparing game…</string>
+    <string name="boot_please_wait">This only happens once per game.</string>
+    <string name="boot_step">%1$d of %2$d%3$s</string>
+    <string name="boot_eta_wrap">" · about %1$s left"</string>
+    <string name="boot_eta_seconds">%1$d sec</string>
+    <string name="boot_eta_minutes">%1$d min</string>
     <string name="game_settings_title">Game settings</string>
     <string name="game_settings_sub">Compatibility options for this game only. Everything else follows your global settings, so a fix for one title never slows the rest of your library.</string>
     <string name="game_settings_custom">Using custom settings</string>
