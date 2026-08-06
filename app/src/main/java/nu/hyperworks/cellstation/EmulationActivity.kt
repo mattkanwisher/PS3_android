@@ -41,6 +41,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val frame = FrameLayout(this)
         frame.addView(surfaceView)
 
+        pad.nintendoLayout = Settings.nintendoLayout(this)
         overlayMode = Settings.touchOverlayMode(this)
         if (overlayMode != Settings.TouchOverlayMode.NEVER) {
             overlay = TouchOverlayView(this, pad).also { frame.addView(it) }

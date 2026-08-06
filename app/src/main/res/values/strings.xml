@@ -20,6 +20,8 @@
     <string name="kind_folder">Game folder</string>
     <string name="kind_homebrew">Homebrew</string>
     <string name="section_input">Input</string>
+    <string name="nintendo_layout_on">Face buttons: Positional (Nintendo-layout pad)</string>
+    <string name="nintendo_layout_off">Face buttons: By label (A=Cross, B=Circle)</string>
     <string name="section_graphics">Graphics</string>
     <string name="gpu_driver">GPU driver: %1$s</string>
     <string name="gpu_driver_system">System (stock)</string>

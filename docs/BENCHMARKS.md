@@ -35,7 +35,7 @@ aPS3e's 0.0.34 base predates them.
 |---|---|---|---|
 | BlazBlue: intro cinematics | — | **59.9–60.1** | **59.1–60.0** |
 | BlazBlue: main menu | — | **60.0** (15–20% CPU total) | TBD |
-| BlazBlue: in match | — | TBD | TBD |
+| BlazBlue: in match (Tutorial, both characters active) | — | **60.0** (17% CPU total) | TBD |
 | Racing title: title/city scene | 11.9–13.4 | **14.1–15.2** | — (never reached) |
 
 Both emulators hit the 60 FPS cap on this title's intros — on light 2D content
@@ -69,7 +69,7 @@ fixes; before them the run climbed ~300 MB/s and was OOM-killed at ~75 s.)
 
 ## TODO
 
-- [ ] BlazBlue menu/in-match FPS rows for both emulators (both expected to
-      hold 60; confirm in Versus/Training)
+- [x] CellStation BlazBlue in-match: **60.0 FPS** (Tutorial mode, 2026-08-06)
+- [ ] aPS3e BlazBlue menu/in-match FPS rows
 - [ ] Optional: aPS3e with the same Turnip driver for a driver-matched FPS row
 - [ ] Distill into a README comparison section once rows are complete

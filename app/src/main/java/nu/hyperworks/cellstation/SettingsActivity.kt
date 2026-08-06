@@ -68,6 +68,14 @@ class SettingsActivity : AppCompatActivity() {
             }
         })
 
+        content.addView(Button(this).apply {
+            text = nintendoLayoutLabel()
+            setOnClickListener {
+                Settings.setNintendoLayout(this@SettingsActivity, !Settings.nintendoLayout(this@SettingsActivity))
+                text = nintendoLayoutLabel()
+            }
+        })
+
         content.addView(sectionHeader(R.string.section_graphics))
         val drivers = GpuDriver.installed(this)
         val selected = Settings.gpuDriver(this)
@@ -119,6 +127,10 @@ class SettingsActivity : AppCompatActivity() {
         textSize = 16f
         setPadding(0, 32, 0, 8)
     }
+
+    private fun nintendoLayoutLabel(): String = getString(
+        if (Settings.nintendoLayout(this)) R.string.nintendo_layout_on else R.string.nintendo_layout_off
+    )
 
     private fun touchOverlayLabel(): String {
         val mode = when (Settings.touchOverlayMode(this)) {

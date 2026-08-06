@@ -13,6 +13,14 @@ import kotlin.math.roundToInt
  */
 class PadState {
 
+    /**
+     * Positional mapping for Nintendo-layout pads (AYN Thor and similar): the
+     * key *codes* follow the printed labels (A right, B bottom, X top, Y
+     * left), but players expect the PS3 button in the same physical position
+     * — bottom confirms, right cancels.
+     */
+    var nintendoLayout = false
+
     // Keep in sync with android_pad_button (native/bridge/android_pad_handler.h)
     object Btn {
         const val CROSS = 1; const val CIRCLE = 2; const val SQUARE = 3; const val TRIANGLE = 4
@@ -44,10 +52,10 @@ class PadState {
     }
 
     private fun keyIndex(keyCode: Int): Int = when (keyCode) {
-        KeyEvent.KEYCODE_BUTTON_A -> Btn.CROSS
-        KeyEvent.KEYCODE_BUTTON_B -> Btn.CIRCLE
-        KeyEvent.KEYCODE_BUTTON_X -> Btn.SQUARE
-        KeyEvent.KEYCODE_BUTTON_Y -> Btn.TRIANGLE
+        KeyEvent.KEYCODE_BUTTON_A -> if (nintendoLayout) Btn.CIRCLE else Btn.CROSS
+        KeyEvent.KEYCODE_BUTTON_B -> if (nintendoLayout) Btn.CROSS else Btn.CIRCLE
+        KeyEvent.KEYCODE_BUTTON_X -> if (nintendoLayout) Btn.TRIANGLE else Btn.SQUARE
+        KeyEvent.KEYCODE_BUTTON_Y -> if (nintendoLayout) Btn.SQUARE else Btn.TRIANGLE
         KeyEvent.KEYCODE_BUTTON_L1 -> Btn.L1
         KeyEvent.KEYCODE_BUTTON_R1 -> Btn.R1
         KeyEvent.KEYCODE_BUTTON_THUMBL -> Btn.L3
