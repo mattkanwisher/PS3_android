@@ -76,3 +76,49 @@ Note `Accurate SPU DMA` is already `false`; this is the normal path, not the acc
 
 Deliberately **not** on this list: more thread-scheduling work, and anything driver-side.
 The profile says neither is where the time goes.
+
+
+## Experiments run against this profile — both negative
+
+### Thread affinity (patch 0017, kept)
+
+Pinning PPU/SPU/RSX off the little cores took SPU little-core residency from 16–52%
+to 0% and moved frame rate not at all (24.3–28.4 avg vs a 27.8–29.5 baseline on a
+matched Forest-stage fight). Kept, because the behaviour is principled and should help
+thermals, but it is not a performance win. The profile is why: those threads' emulator
+time is lock waiting, so faster cores let them spin faster.
+
+### WFE on the range-lock cache line (reverted)
+
+Upstream PR #18913 proposes replacing arm64 reservation spinning with
+`utils::spin_on_cacheline_once` (LDAXR + WFE). Two findings:
+
+**The PR itself does not apply here.** It touches the `GETLLAR` re-poll and
+`RdEventStat` branches. In this profile those sites are `set_ch_value` at 0.04% and
+`reservation_notifier_end_wait` at 0.03% — under 0.1% of cycles combined. Whatever its
+merit for the GoW3 freeze it targets (a hang, not throughput, and one two maintainers
+could not reproduce), it cannot move DOA5 on this device. Note also that it was closed
+for a missing AI disclosure rather than on tested technical grounds, and that
+`busy_wait` is *not* broken on ARM — it is a real timed spin against the generic timer,
+so the maintainer's scepticism about the stated rationale was fair.
+
+**Applying the same technique to the site that *is* hot did not help either.** The
+ungated `busy_wait(200)` in `vm::writer_lock`'s retry loop was replaced with
+`spin_on_cacheline_once` on the range-lock bits. Result: `writer_lock` went 11.07% →
+11.75% of cycles (unchanged within noise) and frame rate 28.2 mean vs 27.8–29.5
+baseline. The share not *dropping* is the informative part — a core parked in WFE
+retires no cycles, so if WFE were engaging the share would fall. It means the LDAXR
+early-out returns almost every time: the range-lock bits change so often that there is
+nothing to sleep on, and removing the timed backoff just tightens the loop. Reverted.
+
+Note the `busy_wait(5000)` earlier in the same function is gated on
+`ppu_reservation_priority_over_spu`, which is off by default, so it never runs — the
+ungated `busy_wait(200)` in the retry loop is the one that matters.
+
+### What that leaves
+
+The contention itself, not the waiting, is the cost. Six SPU threads serialising on the
+same range locks is the structural problem; making the wait cheaper does not help when
+the threads genuinely cannot proceed. Worth investigating next: whether the range-lock
+granularity can be narrowed so the SPUs collide less often, and the 8%-of-emulator-time
+`rsx::FIFO::fetch_u32`. Neither is a small change.
