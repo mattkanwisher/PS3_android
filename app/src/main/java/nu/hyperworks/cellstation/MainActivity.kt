@@ -370,6 +370,17 @@ class MainActivity : AppCompatActivity() {
                 refreshChips()
                 renderContent()
             }
+
+            // Opt-in online data: refresh the RPCS3 compatibility list and pull
+            // missing GameTDB covers, then re-render once with whatever landed.
+            if (Settings.onlineData(this)) {
+                var changed = GameData.refreshCompat(this)
+                for (entry in scanned) {
+                    val serial = entry.serial ?: continue
+                    if (GameData.fetchCover(this, serial)) changed = true
+                }
+                if (changed) runOnUiThread { renderContent() }
+            }
         }
     }
 
@@ -525,7 +536,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(2), dp(6), 0, 0)
         }
         caption.addView(View(this).apply {
-            background = Ui.rounded(kindColor(entry.kind), 4, this@MainActivity)
+            background = Ui.rounded(dotColor(entry), 4, this@MainActivity)
             layoutParams = LinearLayout.LayoutParams(dp(7), dp(7)).apply { marginEnd = dp(6) }
         })
         caption.addView(Ui.body(this, entry.title, Ui.MUTED, 12.5f).apply {
@@ -536,10 +547,21 @@ class MainActivity : AppCompatActivity() {
         return cell
     }
 
-    private fun kindColor(kind: GameLibrary.Kind): Int = when (kind) {
-        GameLibrary.Kind.GAME_FOLDER -> Ui.OK
-        GameLibrary.Kind.DISC_IMAGE -> Ui.VIOLET
-        GameLibrary.Kind.HOMEBREW -> Ui.ACCENT
+    /**
+     * Tile dot: community compatibility status when known (online data on),
+     * else the content type.
+     */
+    private fun dotColor(entry: GameLibrary.Entry): Int {
+        when (GameData.compatStatus(this, entry.serial)) {
+            "Playable" -> return Ui.OK
+            "Ingame" -> return Ui.WARN
+            "Intro", "Loadable", "Nothing" -> return Ui.BAD
+        }
+        return when (entry.kind) {
+            GameLibrary.Kind.GAME_FOLDER -> Ui.OK
+            GameLibrary.Kind.DISC_IMAGE -> Ui.VIOLET
+            GameLibrary.Kind.HOMEBREW -> Ui.ACCENT
+        }
     }
 
     private fun loadArt(into: ImageView, entry: GameLibrary.Entry) {
@@ -577,7 +599,21 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, 0, dp(12))
         }
-        head.addView(artView(entry, dp(88)))
+        // Prefer the downloaded GameTDB box cover for the sheet's larger art;
+        // the tile keeps the native ICON0.
+        val cover = entry.serial?.let { GameData.coverFile(this, it).takeIf { f -> f.isFile } }
+        if (cover != null) {
+            head.addView(AppCompatImageView(this).apply {
+                adjustViewBounds = true
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setImageBitmap(BitmapFactory.decodeFile(cover.absolutePath))
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, dp(110)
+                )
+            })
+        } else {
+            head.addView(artView(entry, dp(88)))
+        }
         val meta = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, 0, 0)
@@ -591,6 +627,7 @@ class MainActivity : AppCompatActivity() {
         })
         val detail = listOfNotNull(
             entry.serial,
+            GameData.compatStatus(this, entry.serial),
             kindLabel(entry.kind),
             GameLibrary.humanSize(entry.sizeBytes)
         ).joinToString(" · ")

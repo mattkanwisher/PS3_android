@@ -228,6 +228,19 @@ class SettingsActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = dp(12) }
         })
+        pane.addView(Ui.divider(this, vertical = false).apply {
+            (layoutParams as? LinearLayout.LayoutParams)?.topMargin = dp(12)
+        })
+
+        row(
+            getString(R.string.row_online_data),
+            getString(R.string.row_online_data_sub),
+            Ui.segmented(
+                this,
+                listOf(getString(R.string.seg_off), getString(R.string.seg_on)),
+                if (Settings.onlineData(this)) 1 else 0
+            ) { i -> Settings.setOnlineData(this, i == 1) }
+        )
     }
 
     private fun renderFolders() {
@@ -268,6 +281,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun renderAbout() {
         pane.addView(Ui.body(this, getString(R.string.app_banner, EmuBridge.getVersion()), Ui.INK, 14.5f))
         pane.addView(Ui.body(this, getString(R.string.about_attribution), Ui.MUTED, 13f).apply {
+            setPadding(0, dp(12), 0, 0)
+        })
+        pane.addView(Ui.body(this, getString(R.string.about_online_data), Ui.MUTED, 13f).apply {
             setPadding(0, dp(12), 0, 0)
         })
     }

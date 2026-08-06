@@ -96,6 +96,10 @@
     <string name="seg_off">Off</string>
     <string name="row_gpu_driver">GPU driver</string>
     <string name="row_gpu_driver_sub">Takes effect after restarting the app. Turnip recommended on Adreno.</string>
+    <string name="seg_on">On</string>
+    <string name="row_online_data">Online game data</string>
+    <string name="row_online_data_sub">Downloads box covers from GameTDB and the RPCS3 community compatibility list (the colored dot on each game). Matched by serial — nothing about your library is uploaded.</string>
+    <string name="about_online_data">Optional online data: box covers courtesy of GameTDB.com (non-commercial); compatibility statuses courtesy of the RPCS3 community compatibility list at rpcs3.net.</string>
     <string name="remove">Remove</string>
     <string name="restore_hidden">Restore %1$d hidden game(s)</string>
     <string name="hidden_restored">Hidden games restored.</string>

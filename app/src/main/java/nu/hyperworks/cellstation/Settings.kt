@@ -90,6 +90,15 @@ object Settings {
         prefs(context).edit().remove(KEY_HIDDEN_GAMES).apply()
     }
 
+    /** Opt-in for GameTDB covers + the RPCS3 compatibility feed. Default off. */
+    fun onlineData(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONLINE_DATA, false)
+
+    fun setOnlineData(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ONLINE_DATA, enabled).apply()
+    }
+
+    private const val KEY_ONLINE_DATA = "online_data"
     private const val KEY_GPU_DRIVER = "gpu_driver"
     private const val KEY_LAST_PLAYED = "last_played"
     private const val KEY_LAST_PLAYED_AT = "last_played_at"
