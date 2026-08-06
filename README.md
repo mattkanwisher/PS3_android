@@ -41,6 +41,32 @@ cd app && ./gradlew assembleDebug
 
 The build script cross-compiles a static ffmpeg into `~/ffmpeg-android` (first run only), configures `native/` with the NDK toolchain (arm64-v8a, android-29, `WITH_LLVM=ON` against the prebuilt), builds `libcellstation.so`, and stages a stripped copy into `app/src/main/jniLibs/`. Override `ANDROID_NDK_HOME`, `FFMPEG_PREFIX`, `LLVM_PREBUILT`, or `BUILD_DIR` via the environment.
 
+## GPU drivers: Turnip (recommended) and stock
+
+CellStation can replace the device's Vulkan driver at runtime with a custom one
+via bundled [libadrenotools](https://github.com/bylaws/libadrenotools) — no root
+needed. On Snapdragon devices the recommended driver is **Mesa Turnip** (the
+open-source freedreno Vulkan driver):
+
+- **Noticeably faster** in our testing on an AYN Thor (Adreno 740): ~15% higher
+  FPS in a heavy commercial title, identical rendering.
+- **Far lower GPU memory use** (~3× in the same test). The stock Qualcomm blob
+  backs command buffers and descriptor sets with GPU memory that Android never
+  attributes to the app, which starves the device in long sessions; Turnip keeps
+  that memory host-side like desktop Mesa.
+
+To use it: download a Turnip build packaged for adrenotools (a zip containing
+`meta.json` + the driver `.so` — e.g. from
+[K11MCH1/AdrenoToolsDrivers](https://github.com/K11MCH1/AdrenoToolsDrivers/releases)
+releases, Adreno 7xx builds), then in-app: **Settings → Graphics → Install GPU
+driver**, pick the zip, and restart the app. The GPU driver setting cycles
+between the system driver and installed ones; the active driver is logged at
+startup (`Found Vulkan-compatible GPU: 'Turnip Adreno (TM) ...'`).
+
+If a custom driver fails to load, CellStation falls back to the system driver
+automatically. Driver packages are user-installed and never bundled with the
+app.
+
 ## Testing with homebrew
 
 The rpcs3 submodule ships the RPCS3 team's own homebrew test programs in `rpcs3/bin/test/` (GPL-2.0, no commercial content). Use these as boot-test payloads — never commercial games:
