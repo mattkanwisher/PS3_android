@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
+import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -120,8 +121,14 @@ object Ui {
     /**
      * Segmented control: one row of options, the selected one filled with the
      * accent. Calls [onSelect] with the chosen index and restyles itself.
+     *
+     * Cells share the width equally, so labels get tighter as options are added.
+     * Long core enum names ("Bottom Right", "Minimal") do not fit four or five
+     * across a portrait pane at the roomy padding, so the padding shrinks and
+     * labels are allowed a second line rather than being clipped mid-glyph.
      */
     fun segmented(context: Context, options: List<String>, selected: Int, onSelect: (Int) -> Unit): LinearLayout {
+        val padX = context.dp(if (options.size >= 5) 6 else if (options.size == 4) 9 else 14)
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             background = rounded(PANEL, 9, context, LINE)
@@ -146,11 +153,12 @@ object Ui {
                 text = label
                 textSize = 13f
                 gravity = Gravity.CENTER
-                maxLines = 1
+                maxLines = 2
+                ellipsize = TextUtils.TruncateAt.END
                 isFocusable = true
                 isClickable = true
-                setPadding(context.dp(14), context.dp(7), context.dp(14), context.dp(7))
-            }.also { row.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)) }
+                setPadding(padX, context.dp(7), padX, context.dp(7))
+            }.also { row.addView(it, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)) }
         }
         cells.forEachIndexed { i, cell ->
             style(cell, i == selected)

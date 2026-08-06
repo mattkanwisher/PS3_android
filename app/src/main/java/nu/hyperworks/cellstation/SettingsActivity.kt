@@ -249,39 +249,49 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     /**
-     * The core's own RSX performance overlay, driven straight from config.yml.
-     * These are dynamic settings, so the core picks them up on a running game;
-     * nothing here is drawn by the app.
+     * The core's own RSX performance overlay (overlay_perf_metrics.cpp), driven
+     * straight from config.yml. Everything under "Video/Performance Overlay" is
+     * marked dynamic in the core, so a running game picks these up immediately —
+     * the bridge re-runs reset_performance_overlay() after each write. Nothing
+     * here is drawn or measured by the app.
      *
-     * Detail and corner only appear once the overlay is on, so the pane stays
-     * short for the common case of "just show me the frame rate".
+     * The rest of the controls only appear once the overlay is on, so the pane
+     * stays short for the common case of "just show me the frame rate".
      */
     private fun renderPerfOverlay() {
-        val enabled = EmuBridge.globalConfigGet(PERF_ENABLED) == "true"
-        row(
-            getString(R.string.row_perf_overlay),
-            getString(R.string.row_perf_overlay_sub),
-            Ui.segmented(
-                this,
-                listOf(getString(R.string.seg_off), getString(R.string.seg_on)),
-                if (enabled) 1 else 0
-            ) { i ->
-                if (EmuBridge.globalConfigSet(PERF_ENABLED, if (i == 1) "true" else "false")) {
-                    renderPane()
-                } else {
-                    Toast.makeText(this, R.string.game_settings_rejected, Toast.LENGTH_LONG).show()
-                }
-            }
+        perfOverlayChoice(
+            EmuBridge.PERF_ENABLED,
+            R.string.row_perf_overlay, R.string.row_perf_overlay_sub,
+            rerenderOnChange = true
         )
 
-        if (!enabled) return
+        if (!EmuBridge.perfOverlayEnabled()) return
 
-        perfOverlayChoice(PERF_LEVEL, R.string.row_perf_detail, R.string.row_perf_detail_sub)
-        perfOverlayChoice(PERF_POSITION, R.string.row_perf_position, R.string.row_perf_position_sub)
+        perfOverlayChoice(
+            EmuBridge.PERF_LEVEL,
+            R.string.row_perf_detail, R.string.row_perf_detail_sub
+        )
+        perfOverlayChoice(
+            EmuBridge.PERF_POSITION,
+            R.string.row_perf_position, R.string.row_perf_position_sub
+        )
+        perfOverlayChoice(
+            EmuBridge.PERF_FRAMERATE_GRAPH,
+            R.string.row_perf_fps_graph, R.string.row_perf_fps_graph_sub
+        )
+        perfOverlayChoice(
+            EmuBridge.PERF_FRAMETIME_GRAPH,
+            R.string.row_perf_frametime_graph, R.string.row_perf_frametime_graph_sub
+        )
     }
 
-    /** Segmented picker over whatever values the core accepts for [path]. */
-    private fun perfOverlayChoice(path: String, label: Int, hint: Int) {
+    /**
+     * Segmented picker over whatever values the core accepts for [path]. The
+     * labels come from the core's own enum names (cfg::_enum::to_list), which is
+     * exactly what cfg::_enum::from_string parses back, so a value shown here is
+     * always a value the core will take.
+     */
+    private fun perfOverlayChoice(path: String, label: Int, hint: Int, rerenderOnChange: Boolean = false) {
         val options = EmuBridge.globalConfigOptions(path)
             .split('\n')
             .filter { it.isNotBlank() }
@@ -294,12 +304,21 @@ class SettingsActivity : AppCompatActivity() {
         row(
             getString(label),
             getString(hint),
-            Ui.segmented(this, options, selected) { i ->
+            Ui.segmented(this, options.map(::prettify), selected) { i ->
                 if (!EmuBridge.globalConfigSet(path, options[i])) {
                     Toast.makeText(this, R.string.game_settings_rejected, Toast.LENGTH_LONG).show()
+                } else if (rerenderOnChange) {
+                    renderPane()
                 }
             }
         )
+    }
+
+    /** The core spells booleans "true"/"false"; give the toggles real labels. */
+    private fun prettify(value: String): String = when (value) {
+        "true" -> getString(R.string.opt_on)
+        "false" -> getString(R.string.opt_off)
+        else -> value
     }
 
     private fun renderControls() {
@@ -462,11 +481,5 @@ class SettingsActivity : AppCompatActivity() {
 
     private companion object {
         const val STATE_CATEGORY = "category"
-
-        // "Section/Setting" paths as spelled in config.yml; the overlay's
-        // section is nested inside Video.
-        const val PERF_ENABLED = "Video/Performance Overlay/Enabled"
-        const val PERF_LEVEL = "Video/Performance Overlay/Detail level"
-        const val PERF_POSITION = "Video/Performance Overlay/Position"
     }
 }

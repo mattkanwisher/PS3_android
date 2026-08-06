@@ -135,11 +135,15 @@
     <string name="row_gpu_driver_sub">Takes effect after restarting the app. Turnip recommended on Adreno.</string>
     <string name="seg_on">On</string>
     <string name="row_perf_overlay">Performance overlay</string>
-    <string name="row_perf_overlay_sub">Draws the emulator\'s own counters in a corner of the game. Useful for telling a game that is genuinely running at full speed from one that only looks like it. Drawing it costs a little performance itself.</string>
+    <string name="row_perf_overlay_sub">Draws the emulator\'s own counters over the game. Useful for telling a game that is genuinely running at full speed from one that only looks like it. It is not free: the text is drawn through the same overlay path as the emulator\'s dialogs, and the higher detail levels walk every PPU and SPU thread a few times a second. Turn it off once you have your answer.</string>
     <string name="row_perf_detail">Overlay detail</string>
-    <string name="row_perf_detail_sub">Minimal is the frame rate on its own. Low adds total CPU load, Medium splits that into PPU/SPU/RSX, High also shows frame time in milliseconds. None draws no text.</string>
+    <string name="row_perf_detail_sub">More detail costs more to collect. Minimal is the frame rate alone. Low adds total CPU load. Medium splits that load into PPU, SPU and RSX. High also shows frame time in milliseconds, the number of PPU/SPU/total threads, and how busy the RSX thread is. None hides the text but still draws any graphs below.</string>
     <string name="row_perf_position">Overlay corner</string>
     <string name="row_perf_position_sub">Where the counters sit. Move them if they cover something the game draws in that corner.</string>
+    <string name="row_perf_fps_graph">Frame rate graph</string>
+    <string name="row_perf_fps_graph_sub">Plots the last 50 frame-rate samples under the counters, with the minimum, maximum, average and worst one-percent. Shows whether a number is steady or an average of good and bad stretches. Adds another drawn element per frame.</string>
+    <string name="row_perf_frametime_graph">Frame time graph</string>
+    <string name="row_perf_frametime_graph_sub">Plots the last 170 individual frame times. Spikes here are the stutters you feel but that an averaged frame rate hides. The most expensive option on this screen — it samples on every frame, not on the update interval.</string>
     <string name="cat_controls">Controls</string>
     <string name="row_face_buttons">Face buttons</string>
     <string name="row_face_buttons_sub">Positional puts Cross on the bottom on Nintendo-labeled pads (the Thor\'s built-in controller). Ignored once a custom mapping is saved.</string>
@@ -168,6 +172,7 @@
     <!-- In-game quick panel -->
     <string name="quick_title">Quick settings</string>
     <string name="quick_resume">Resume</string>
+    <string name="quick_perf_overlay">Performance overlay: %1$s</string>
     <string name="quick_close">Close game</string>
     <string name="quick_close_hint">Hold to close — unsaved progress is lost.</string>
 </resources>

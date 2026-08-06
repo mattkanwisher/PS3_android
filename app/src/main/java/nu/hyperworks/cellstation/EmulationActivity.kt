@@ -108,6 +108,22 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
         panel.addView(toggleButton.apply { layoutParams = panelItem() })
 
+        // The performance overlay is a global core setting, but the moment you
+        // want it is while a slow scene is on screen — so it gets a toggle here
+        // too. Everything else about it (detail, corner, graphs) stays in
+        // Settings; this only flips it on and off. The core marks the setting
+        // dynamic and the bridge rebuilds the overlay after the write, so it
+        // appears on the running game without a reboot.
+        var perfButton: TextView? = null
+        perfButton = Ui.actionButton(this, perfOverlayLabel(), primary = false) {
+            if (EmuBridge.setPerfOverlayEnabled(!EmuBridge.perfOverlayEnabled())) {
+                perfButton?.text = perfOverlayLabel()
+            } else {
+                Toast.makeText(this, R.string.game_settings_rejected, Toast.LENGTH_SHORT).show()
+            }
+        }
+        panel.addView(perfButton.apply { layoutParams = panelItem() })
+
         panel.addView(android.view.View(this), LinearLayout.LayoutParams(0, 0, 1f))
 
         panel.addView(Ui.body(this, getString(R.string.quick_close_hint), Ui.MUTED, 11.5f).apply {
@@ -156,6 +172,11 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
         return getString(R.string.touch_overlay, mode)
     }
+
+    private fun perfOverlayLabel(): String = getString(
+        R.string.quick_perf_overlay,
+        getString(if (EmuBridge.perfOverlayEnabled()) R.string.opt_on else R.string.opt_off)
+    )
 
     /** Applies an overlay mode change immediately, mid-session. */
     private fun applyOverlayMode(mode: Settings.TouchOverlayMode) {

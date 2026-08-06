@@ -580,8 +580,12 @@ namespace
 	// when the path does not resolve or the type has no fixed value list.
 	std::string config_options(const std::string& path)
 	{
-		cfg_root defaults;
-		const cfg::_base* node = find_config_node(defaults, path);
+		// Heap, not stack: cfg_root is the whole settings tree (hundreds of
+		// entries, each carrying std::strings), and this runs on whichever
+		// thread the app called from. load_global_config allocates it the same
+		// way for the same reason.
+		const auto defaults = std::make_unique<cfg_root>();
+		const cfg::_base* node = find_config_node(*defaults, path);
 
 		if (!node)
 			return {};

@@ -15,6 +15,28 @@ object EmuBridge {
     const val SURFACE_DESTROYED = 2
 
     /**
+     * config.yml paths for the core's own RSX performance overlay
+     * (`g_cfg.video.perf_overlay`, drawn by overlay_perf_metrics.cpp). Every one
+     * of these is marked dynamic in the core, so [globalConfigSet] applies them
+     * to a running game as well as persisting them.
+     *
+     * Shared between the settings screen and the in-game quick panel, so the
+     * two cannot drift apart.
+     */
+    const val PERF_ENABLED = "Video/Performance Overlay/Enabled"
+    const val PERF_LEVEL = "Video/Performance Overlay/Detail level"
+    const val PERF_POSITION = "Video/Performance Overlay/Position"
+    const val PERF_FRAMERATE_GRAPH = "Video/Performance Overlay/Enable Framerate Graph"
+    const val PERF_FRAMETIME_GRAPH = "Video/Performance Overlay/Enable Frametime Graph"
+
+    /** True when the core's performance overlay is switched on in config.yml. */
+    fun perfOverlayEnabled(): Boolean = globalConfigGet(PERF_ENABLED) == "true"
+
+    /** Switches the performance overlay on or off. False when the core refused. */
+    fun setPerfOverlayEnabled(enabled: Boolean): Boolean =
+        globalConfigSet(PERF_ENABLED, enabled.toString())
+
+    /**
      * Selects the GPU driver for this process; must be called before
      * [initialize] (driver changes take effect on the next app start).
      * Null [driverDir] means the system driver.
