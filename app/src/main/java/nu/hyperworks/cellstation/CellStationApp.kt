@@ -14,6 +14,9 @@ class CellStationApp : Application() {
                 ?.let { Settings.setGpuDriver(this, it.dir.name) }
         }
         GameLibrary.appContext = this
+        // Known handhelds get their layout defaults once, before any screen
+        // reads them; afterwards the user's own settings always win.
+        DeviceProfile.applyOnce(this)
         GpuDriver.apply(this) // must precede initialize; needs a restart to change
         EmuBridge.initialize(filesDir.absolutePath, "00000001")
         thread(name = "EmuMainLoop", isDaemon = true) {

@@ -60,6 +60,20 @@ object Settings {
 
     private const val KEY_NINTENDO_LAYOUT = "nintendo_layout"
 
+    /**
+     * Id of the [DeviceProfile] already applied on this install, or "" if
+     * none. Recording the id (not a bare flag) means a profile added in a
+     * later version still reaches existing installs exactly once.
+     */
+    fun appliedDeviceProfile(context: Context): String =
+        prefs(context).getString(KEY_DEVICE_PROFILE, "").orEmpty()
+
+    fun setAppliedDeviceProfile(context: Context, id: String) {
+        prefs(context).edit().putString(KEY_DEVICE_PROFILE, id).apply()
+    }
+
+    private const val KEY_DEVICE_PROFILE = "applied_device_profile"
+
     /** Directory name under gpu_drivers/ of the selected driver; "" = system. */
     fun gpuDriver(context: Context): String =
         prefs(context).getString(KEY_GPU_DRIVER, "").orEmpty()

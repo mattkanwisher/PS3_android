@@ -247,6 +247,18 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderControls() {
+        DeviceProfile.current()?.let { profile ->
+            pane.addView(Ui.statusChip(
+                this,
+                getString(R.string.detected_device, profile.displayName),
+                if (Settings.appliedDeviceProfile(this) == profile.id) Ui.OK else Ui.MUTED
+            ).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(10) }
+            })
+        }
+
         val overlayModes = listOf(
             getString(R.string.seg_auto), getString(R.string.seg_always), getString(R.string.seg_off)
         )
