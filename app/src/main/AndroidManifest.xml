@@ -37,6 +37,11 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".WelcomeActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
         <!-- Public launch-intent contract (docs/INTENTS.md): frontends like
              Cocoon/Daijisho boot games directly into this activity. -->
         <activity

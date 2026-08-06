@@ -1,20 +1,34 @@
 package nu.hyperworks.cellstation
 
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
-import android.widget.Button
+import android.view.Gravity
+import android.view.ViewGroup
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import nu.hyperworks.cellstation.Ui.dp
 import java.io.File
 import kotlin.concurrent.thread
 
-/** App settings. Emulator-core options still live in the on-device config.yml. */
+/**
+ * App settings (emulator-core options still live in the on-device config.yml).
+ *
+ * Orientation-adaptive like the library: landscape gets the two-pane layout
+ * (categories under the left thumb, controls on the right), portrait collapses
+ * to one pane with horizontally scrolling category pills.
+ */
 class SettingsActivity : AppCompatActivity() {
 
-    private lateinit var content: LinearLayout
+    private enum class Category { QUICK, FOLDERS, ABOUT }
+
+    private lateinit var pane: LinearLayout
+    private var category = Category.QUICK
 
     private val pickDriver = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@registerForActivityResult
@@ -26,7 +40,7 @@ class SettingsActivity : AppCompatActivity() {
                 } else {
                     Settings.setGpuDriver(this, entry.dir.name)
                     Toast.makeText(this, getString(R.string.driver_installed, entry.name), Toast.LENGTH_LONG).show()
-                    rebuild()
+                    renderPane()
                 }
             }
         }
@@ -34,98 +48,231 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32, 40, 32, 32)
+        savedInstanceState?.getInt(STATE_CATEGORY)?.let {
+            category = Category.entries.getOrElse(it) { Category.QUICK }
         }
-        setContentView(ScrollView(this).apply { addView(content) })
-        rebuild()
+        setContentView(if (Ui.isLandscape(this)) buildLandscape() else buildPortrait())
+        renderPane()
     }
 
-    private fun rebuild() {
-        content.removeAllViews()
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putInt(STATE_CATEGORY, category.ordinal)
+    }
 
-        content.addView(TextView(this).apply {
-            text = getString(R.string.settings)
-            textSize = 22f
-            setPadding(0, 0, 0, 24)
+    // ---- scaffolds ---------------------------------------------------------
+
+    private fun buildLandscape(): LinearLayout {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(Ui.BG)
+        }
+        val rail = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Ui.PANEL_RAISED)
+            setPadding(dp(14), dp(18), dp(14), dp(14))
+        }
+        rail.addView(Ui.title(this, getString(R.string.settings), 19f).apply {
+            setPadding(dp(12), 0, 0, dp(14))
+        })
+        for (cat in Category.entries) {
+            rail.addView(categoryItem(cat, vertical = true))
+        }
+        root.addView(rail, LinearLayout.LayoutParams(dp(190), ViewGroup.LayoutParams.MATCH_PARENT))
+        root.addView(Ui.divider(this, vertical = true))
+
+        pane = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(18), dp(22), dp(18))
+        }
+        root.addView(ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            addView(pane)
+        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f))
+        return root
+    }
+
+    private fun buildPortrait(): LinearLayout {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Ui.BG)
+            setPadding(dp(16), dp(16), dp(16), 0)
+        }
+        root.addView(Ui.title(this, getString(R.string.settings), 21f).apply {
+            setPadding(0, 0, 0, dp(12))
+        })
+        val pills = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (cat in Category.entries) {
+            pills.addView(categoryItem(cat, vertical = false))
+        }
+        root.addView(HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(pills)
         })
 
-        content.addView(sectionHeader(R.string.section_input))
-        content.addView(Button(this).apply {
-            text = touchOverlayLabel()
-            setOnClickListener {
-                // Cycle Auto -> Always -> Off; Auto hides the overlay as soon as
-                // a physical controller is used.
-                val next = when (Settings.touchOverlayMode(this@SettingsActivity)) {
-                    Settings.TouchOverlayMode.AUTO -> Settings.TouchOverlayMode.ALWAYS
-                    Settings.TouchOverlayMode.ALWAYS -> Settings.TouchOverlayMode.NEVER
-                    Settings.TouchOverlayMode.NEVER -> Settings.TouchOverlayMode.AUTO
-                }
-                Settings.setTouchOverlayMode(this@SettingsActivity, next)
-                text = touchOverlayLabel()
-            }
-        })
+        pane = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(14), 0, dp(18))
+        }
+        root.addView(ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+            addView(pane)
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        return root
+    }
 
-        content.addView(sectionHeader(R.string.section_graphics))
-        val drivers = GpuDriver.installed(this)
-        val selected = Settings.gpuDriver(this)
-        content.addView(Button(this).apply {
-            val current = drivers.firstOrNull { it.dir.name == selected }
-            text = getString(R.string.gpu_driver, current?.name ?: getString(R.string.gpu_driver_system))
-            setOnClickListener {
-                // Cycle System -> each installed driver; applies on next app start.
-                val names = listOf("") + drivers.map { it.dir.name }
-                val next = names[(names.indexOf(selected).coerceAtLeast(0) + 1) % names.size]
-                Settings.setGpuDriver(this@SettingsActivity, next)
-                Toast.makeText(this@SettingsActivity, R.string.driver_restart_needed, Toast.LENGTH_SHORT).show()
-                rebuild()
-            }
-        })
-        content.addView(Button(this).apply {
-            text = getString(R.string.install_gpu_driver)
-            setOnClickListener { pickDriver.launch(arrayOf("application/zip", "application/octet-stream")) }
-        })
-
-        content.addView(sectionHeader(R.string.section_folders))
-        val folders = Settings.scanFolders(this).sorted()
-        if (folders.isEmpty()) {
-            content.addView(TextView(this).apply {
-                text = getString(R.string.no_scan_folders)
-                setPadding(0, 0, 0, 16)
+    private fun categoryItem(cat: Category, vertical: Boolean): TextView {
+        val on = cat == category
+        return TextView(this).apply {
+            text = getString(when (cat) {
+                Category.QUICK -> R.string.cat_quick
+                Category.FOLDERS -> R.string.section_folders
+                Category.ABOUT -> R.string.section_about
             })
-        } else {
-            for (path in folders) {
-                content.addView(Button(this).apply {
-                    val missing = if (File(path).isDirectory) "" else getString(R.string.folder_missing)
-                    text = getString(R.string.remove_folder, path + missing)
-                    setOnClickListener {
-                        Settings.removeScanFolder(this@SettingsActivity, path)
-                        rebuild()
-                    }
+            textSize = 14f
+            maxLines = 1
+            setTextColor(if (on) Ui.INK else Ui.MUTED)
+            typeface = if (on) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            background = if (on) Ui.rounded(0x2A8B7CFA, if (vertical) 9 else 18, this@SettingsActivity)
+                        else Ui.focusable(this@SettingsActivity, Color.TRANSPARENT, if (vertical) 9 else 18)
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(14), dp(9), dp(14), dp(9))
+            layoutParams = if (vertical) {
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { bottomMargin = dp(4) }
+            } else {
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { marginEnd = dp(8) }
+            }
+            setOnClickListener {
+                if (category != cat) {
+                    category = cat
+                    recreate()
+                }
+            }
+        }
+    }
+
+    // ---- panes -------------------------------------------------------------
+
+    private fun renderPane() {
+        pane.removeAllViews()
+        when (category) {
+            Category.QUICK -> renderQuick()
+            Category.FOLDERS -> renderFolders()
+            Category.ABOUT -> renderAbout()
+        }
+    }
+
+    /** One settings row: title + plain-language subtitle, control below or beside. */
+    private fun row(title: String, subtitle: String, control: android.view.View) {
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(10), 0, dp(12))
+        }
+        item.addView(TextView(this).apply {
+            text = title
+            textSize = 15f
+            setTextColor(Ui.INK)
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        item.addView(Ui.body(this, subtitle, Ui.MUTED, 12.5f).apply {
+            setPadding(0, dp(2), 0, dp(8))
+        })
+        item.addView(control)
+        pane.addView(item)
+        pane.addView(Ui.divider(this, vertical = false))
+    }
+
+    private fun renderQuick() {
+        val overlayModes = listOf(
+            getString(R.string.seg_auto), getString(R.string.seg_always), getString(R.string.seg_off)
+        )
+        val overlaySelected = when (Settings.touchOverlayMode(this)) {
+            Settings.TouchOverlayMode.AUTO -> 0
+            Settings.TouchOverlayMode.ALWAYS -> 1
+            Settings.TouchOverlayMode.NEVER -> 2
+        }
+        row(
+            getString(R.string.row_touch_overlay),
+            getString(R.string.row_touch_overlay_sub),
+            Ui.segmented(this, overlayModes, overlaySelected) { i ->
+                Settings.setTouchOverlayMode(this, when (i) {
+                    1 -> Settings.TouchOverlayMode.ALWAYS
+                    2 -> Settings.TouchOverlayMode.NEVER
+                    else -> Settings.TouchOverlayMode.AUTO
                 })
             }
-        }
+        )
 
-        content.addView(sectionHeader(R.string.section_about))
-        content.addView(TextView(this).apply {
-            text = getString(R.string.app_banner, EmuBridge.getVersion())
+        val drivers = GpuDriver.installed(this)
+        val selected = Settings.gpuDriver(this)
+        val names = listOf(getString(R.string.gpu_driver_system)) + drivers.map { it.name }
+        val values = listOf("") + drivers.map { it.dir.name }
+        val selectedIndex = values.indexOf(selected).coerceAtLeast(0)
+        row(
+            getString(R.string.row_gpu_driver),
+            getString(R.string.row_gpu_driver_sub),
+            Ui.segmented(this, names, selectedIndex) { i ->
+                Settings.setGpuDriver(this, values[i])
+                Toast.makeText(this, R.string.driver_restart_needed, Toast.LENGTH_SHORT).show()
+            }
+        )
+        pane.addView(Ui.actionButton(this, getString(R.string.install_gpu_driver), primary = false) {
+            pickDriver.launch(arrayOf("application/zip", "application/octet-stream"))
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(12) }
         })
     }
 
-    private fun sectionHeader(resId: Int) = TextView(this).apply {
-        text = getString(resId)
-        textSize = 16f
-        setPadding(0, 32, 0, 8)
+    private fun renderFolders() {
+        val folders = Settings.scanFolders(this).sorted()
+        if (folders.isEmpty()) {
+            pane.addView(Ui.body(this, getString(R.string.no_scan_folders), Ui.MUTED, 14f))
+        } else {
+            for (path in folders) {
+                val missing = if (File(path).isDirectory) "" else getString(R.string.folder_missing)
+                row(
+                    path.substringAfterLast('/'),
+                    path + missing,
+                    Ui.actionButton(this, getString(R.string.remove), primary = false) {
+                        Settings.removeScanFolder(this, path)
+                        renderPane()
+                    }
+                )
+            }
+        }
+
+        if (Settings.hiddenGames(this).isNotEmpty()) {
+            pane.addView(Ui.actionButton(
+                this,
+                getString(R.string.restore_hidden, Settings.hiddenGames(this).size),
+                primary = false
+            ) {
+                Settings.unhideAllGames(this)
+                renderPane()
+                Toast.makeText(this, R.string.hidden_restored, Toast.LENGTH_SHORT).show()
+            }.apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(16) }
+            })
+        }
     }
 
-    private fun touchOverlayLabel(): String {
-        val mode = when (Settings.touchOverlayMode(this)) {
-            Settings.TouchOverlayMode.AUTO -> getString(R.string.touch_auto)
-            Settings.TouchOverlayMode.ALWAYS -> getString(R.string.touch_always)
-            Settings.TouchOverlayMode.NEVER -> getString(R.string.touch_never)
-        }
-        return getString(R.string.touch_overlay, mode)
+    private fun renderAbout() {
+        pane.addView(Ui.body(this, getString(R.string.app_banner, EmuBridge.getVersion()), Ui.INK, 14.5f))
+        pane.addView(Ui.body(this, getString(R.string.about_attribution), Ui.MUTED, 13f).apply {
+            setPadding(0, dp(12), 0, 0)
+        })
+    }
+
+    private companion object {
+        const val STATE_CATEGORY = "category"
     }
 }
