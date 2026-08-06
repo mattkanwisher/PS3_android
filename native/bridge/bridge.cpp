@@ -653,7 +653,26 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(J
 		}
 	}
 #endif
+	// Emu.Init() writes config.yml when it is missing, so a first run has to be
+	// detected before it, not after.
+	const bool fresh_config = !fs::is_file(fs::get_config_dir(true) + "config.yml");
+
 	Emu.Init();
+
+	// Android-appropriate defaults, applied only to a fresh config so a user's
+	// own settings are never overwritten.
+	//
+	// llvm_threads=0 means "one compiler per core". Each PPU LLVM worker holds
+	// a whole module (thousands of functions in a big title), so on an 8-core
+	// phone that spikes past what malloc can map and aborts mid-compile —
+	// heavy titles never finish their first boot. Two workers keep the compile
+	// parallel without the spike.
+	if (fresh_config)
+	{
+		g_cfg.core.llvm_threads.set(2);
+		Emulator::SaveSettings(g_cfg.to_string(), {});
+		cellstation_log.notice("Fresh config: Max LLVM Compile Threads defaulted to 2");
+	}
 
 #ifdef ARCH_ARM64
 	// Scale busy-wait budgets to the (usually 19.2MHz) arm generic timer,
