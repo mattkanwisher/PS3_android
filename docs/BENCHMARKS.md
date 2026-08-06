@@ -122,6 +122,25 @@ untextured surface where the road should be):
 | `Write Color Buffers: true` | **crashes the game** (SIGSEGV) |
 | `Strict Rendering Mode: true` | **fixes it** — full cobblestone texture, grout lines, cast shadows |
 
+**The artifact is Adreno/Turnip-specific, not a core bug.** Verified against
+desktop rpcs3 on a Windows box (Ryzen 9 9950X, RTX 5070, native Vulkan,
+v0.0.42-19679 — the same core version line), running the *same* disc at *stock
+defaults*: `Approximate` xfloat, `Strict Rendering Mode: false`, no per-game
+config. The desktop renders the ground correctly — full paving texture, visible
+slab seams, correct materials — where the Thor at those same settings renders a
+flat untextured surface.
+
+So `Strict Rendering Mode` is a workaround for something in the Adreno/Turnip
+path rather than a setting this game inherently needs, which makes it worth
+narrowing down and reporting upstream instead of just documenting. Suspect the
+`RSX: Format incompatibility detected ... (VK_FORMAT=0x25, GCM_FORMAT=0x95)`
+seen in the Android log.
+
+The desktop also reached gameplay **without** `Debug Console Mode`, where the
+Thor needed it to survive a guest-side out-of-memory. That is suggestive but not
+conclusive — it has not been confirmed at the same San Vanelona load point where
+the Thor ran out.
+
 Confirmed across three camera angles and lighting conditions, 30.0 fps locked
 (median dt 33.33 ms, p90 33.34 ms), no crash. Left enabled in Skate's per-game
 config, alongside `SPU XFloat Accuracy: Accurate` and `Debug Console Mode: true`.
@@ -195,6 +214,22 @@ Both emulators were observed hanging with threads pegged (SPUs at 100%, RSX at
 SurfaceFlinger latency buffer going stale plus identical screenshot hashes, not
 from CPU activity.
 
+### Reference: desktop rpcs3, same disc
+
+| | CellStation (Thor) | rpcs3 (Windows, RTX 5070) |
+|---|---|---|
+| Frame rate | 20.0 fps (in-game, Strict Rendering on) | **65.94 fps** |
+| Ground rendering at stock defaults | untextured | **correct** |
+| Cold PPU compile | 503 s (2 threads) | seconds (32 threads, znver5) |
+| Needs Debug Console Mode | yes | no (at the point reached) |
+
+Useful incidental finding: desktop rpcs3 with a fresh `dev_hdd0` stops at Skate's
+"will install game data to the HDD" prompt and waits for a button press. From the
+log alone that is indistinguishable from a hang — RSX goes quiet after two shader
+programs while PPU threads spin in `sys_timer_usleep`. An earlier macOS run was
+misread as a possible reproduction of the Android hang on that basis; it was just
+this prompt.
+
 ### Compile threads: faster is not better here
 
 Same disc, same cold cache, back to back — raising `Max LLVM Compile Threads`
@@ -233,9 +268,12 @@ fix if heavy titles are ever to compile in a single pass.
 - [ ] aPS3e Skate in-game FPS at the same location, for a comparable row
 - [x] Skate untextured ground: fixed by `Strict Rendering Mode` (2026-08-07)
 - [ ] Boot progress UI for long cold compiles (biggest UX gap vs aPS3e)
-- [ ] Desktop arm64 control run: rpcs3 0.0.42 installed on macOS; the Skate
-      xfloat question is still open (the render window defaults to fullscreen on
-      its own Space, which made the first attempt unobservable)
+- [x] Desktop rendering reference (Windows/RTX): ground artifact confirmed
+      Adreno/Turnip-specific (2026-08-07)
+- [ ] Narrow the Turnip ground artifact for an upstream report
+- [ ] Desktop **arm64** control (macOS) for the SPU xfloat question — still open;
+      set `visibility=Windowed` in GuiConfigs first or the render window lands on
+      its own Space and cannot be observed
 - [x] Dead or Alive 5 Ultimate rows (2026-08-07)
 - [ ] aPS3e BlazBlue menu/in-match FPS rows
 - [ ] Optional: aPS3e with the same Turnip driver for a driver-matched FPS row
