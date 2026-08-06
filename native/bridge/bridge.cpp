@@ -678,8 +678,17 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(J
 	if (fresh_config)
 	{
 		g_cfg.core.llvm_threads.set(2);
+
+		// Upstream defaults to async_with_interpreter, which precompiles 570
+		// shader-interpreter pipeline variants before a game can start. That
+		// costs ~5 minutes on this class of hardware and reads as a hang.
+		// The interpreter only smooths over shaders that are still compiling;
+		// plain async recompilation trades a little first-encounter stutter
+		// for a boot that actually finishes.
+		g_cfg.video.shadermode.set(shader_mode::async_recompiler);
+
 		Emulator::SaveSettings(g_cfg.to_string(), {});
-		cellstation_log.notice("Fresh config: Max LLVM Compile Threads defaulted to 2");
+		cellstation_log.notice("Fresh config: LLVM threads = 2, shader mode = async recompiler");
 	}
 
 #ifdef ARCH_ARM64
