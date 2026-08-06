@@ -112,6 +112,89 @@ Note the two FPS figures in the table above are **not** comparable: aPS3e's 30 f
 was its name-entry menu, CellStation's 20 fps is open-world gameplay with the
 city streaming. A like-for-like row needs aPS3e at the same location.
 
+### Skate: the untextured ground
+
+Two per-game graphics settings were A/B'd against the artifact (a large flat
+untextured surface where the road should be):
+
+| Setting | Result |
+|---|---|
+| `Write Color Buffers: true` | **crashes the game** (SIGSEGV) |
+| `Strict Rendering Mode: true` | **fixes it** — full cobblestone texture, grout lines, cast shadows |
+
+Confirmed across three camera angles and lighting conditions, 30.0 fps locked
+(median dt 33.33 ms, p90 33.34 ms), no crash. Left enabled in Skate's per-game
+config, alongside `SPU XFloat Accuracy: Accurate` and `Debug Console Mode: true`.
+All three are needed for this title.
+
+## Dead or Alive 5 Ultimate (2026-08-07, aPS3e 3.0.321)
+
+DOA5 has an attract mode that auto-advances into a CPU-vs-CPU match with no
+input. That made a stable title screen impossible to hold in either emulator but
+gave a genuinely matched in-game scene: both reached the **Forest stage**
+unprompted. CellStation ran on global settings (no per-game config, 2 compile
+threads); aPS3e on its Default profile.
+
+### In-game, Forest stage — matched scene
+
+| | Median | **Average** | p90 frame time | RSS in-game |
+|---|---|---|---|---|
+| CellStation | 30.0 fps | **27.8 – 29.5** | **50.0 ms** | **2.02 GB** (flat) |
+| aPS3e 3.0.321 | 30.0 fps | 24.8 – 26.3 | 66.7 – 83.3 ms | 3.35 GB (still climbing) |
+
+CellStation is ~10–15% higher average frame rate with a materially tighter
+frame-time tail, and holds ~40% less memory. On a later run in the DWA
+wrestling-ring stage it held 30.0–32.2 avg through heavy alpha and lighting work.
+
+**Rendering quality also favours CellStation here:** on the identical Forest
+stage aPS3e shows green/magenta block corruption across the rock face and
+foliage, and heavy dithering on the main-menu background. CellStation renders
+both cleanly.
+
+Note that ~30 fps is not "fine" — DOA5 targets 60, and rpcs3 ties emulated time
+to that target, so the match genuinely plays at roughly two-thirds speed rather
+than merely looking less smooth. The presented figure is also vsync-quantised:
+the panel is pinned to 60 Hz, so an internal ~40 fps lands on screen as 30.
+
+### Cold boot and crashes
+
+| | aPS3e cold | aPS3e warm | CellStation cold | CellStation warm |
+|---|---|---|---|---|
+| PPU modules | 159 new | 0 (cached) | 159 new | 0 (cached) |
+| Outcome | **crash at ~module 150** | reached in-game | **crash at ~module 100** | reached in-game |
+| First game frame | never | t+34 s | never | t+51 s |
+| In-game fight | never | t+130 s | never | t+115 s |
+| Peak RSS | 6595 MB | 3484 MB | 5941 MB | 2008 MB |
+
+**Both emulators fail the cold compile the same way**, which is the most
+important result here:
+
+    aPS3e:       Scudo ERROR: internal map failure (NO MEMORY) requesting 8KB
+    CellStation: Scudo ERROR: internal map failure (NO MEMORY) requesting 4KB
+
+Both SIGABRT in a PPU compile worker. RSS sits at 1–2 GB through the compile then
+spikes to ~6 GB in the final half-second. Since aPS3e carries none of this port's
+patches, this is a core-plus-Android-allocator problem rather than something
+introduced here. Our 2-thread default buys a longer runway (crash at module 100
+vs aPS3e's 150 at 4 threads) but hits the same wall; the cache survives, so a
+relaunch resumes.
+
+### UX gap: no boot progress
+
+aPS3e shows "Compiling PPU Modules… module N of 159 (Xm remaining)" throughout.
+CellStation shows a **black screen with only the touch overlay** for the entire
+41 s warm boot and 5+ minute cold compile, despite having a live progress-dialog
+thread. This is the single biggest usability gap found, and it is why a slow boot
+is indistinguishable from a hang for the user.
+
+### Diagnostic note
+
+The heuristic "frozen emulation = every thread at 0% CPU" is **not reliable**.
+Both emulators were observed hanging with threads pegged (SPUs at 100%, RSX at
+94%, zero frames presented for 2.5+ minutes). Confirm liveness from the
+SurfaceFlinger latency buffer going stale plus identical screenshot hashes, not
+from CPU activity.
+
 ### Compile threads: faster is not better here
 
 Same disc, same cold cache, back to back — raising `Max LLVM Compile Threads`
@@ -148,9 +231,12 @@ fix if heavy titles are ever to compile in a single pass.
 - [x] Skate: module counts, cold-compile times, thread-count A/B (2026-08-07)
 - [x] CellStation Skate FPS: **20.0 fps** in-game (2026-08-07)
 - [ ] aPS3e Skate in-game FPS at the same location, for a comparable row
-- [ ] Skate: untextured ground artifact (RSX format incompatibility)
-- [ ] Dead or Alive 5 Ultimate rows (entry prepared for aPS3e's game list;
-      CellStation reaches its title screen)
+- [x] Skate untextured ground: fixed by `Strict Rendering Mode` (2026-08-07)
+- [ ] Boot progress UI for long cold compiles (biggest UX gap vs aPS3e)
+- [ ] Desktop arm64 control run: rpcs3 0.0.42 installed on macOS; the Skate
+      xfloat question is still open (the render window defaults to fullscreen on
+      its own Space, which made the first attempt unobservable)
+- [x] Dead or Alive 5 Ultimate rows (2026-08-07)
 - [ ] aPS3e BlazBlue menu/in-match FPS rows
 - [ ] Optional: aPS3e with the same Turnip driver for a driver-matched FPS row
 - [ ] Distill into a README comparison section once rows are complete
