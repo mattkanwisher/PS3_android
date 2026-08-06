@@ -27,6 +27,10 @@ class PadState {
 
     private val values = ByteArray(Btn.COUNT)
 
+    /** Physical key → [Btn] index; replaced from KeyMap for custom bindings. */
+    @Volatile
+    var keyMapping: Map<Int, Int> = KeyMap.DEFAULT
+
     private fun set(index: Int, value: Int) {
         values[index] = value.coerceIn(0, 255).toByte()
     }
@@ -43,27 +47,7 @@ class PadState {
         push()
     }
 
-    private fun keyIndex(keyCode: Int): Int = when (keyCode) {
-        KeyEvent.KEYCODE_BUTTON_A -> Btn.CROSS
-        KeyEvent.KEYCODE_BUTTON_B -> Btn.CIRCLE
-        KeyEvent.KEYCODE_BUTTON_X -> Btn.SQUARE
-        KeyEvent.KEYCODE_BUTTON_Y -> Btn.TRIANGLE
-        KeyEvent.KEYCODE_BUTTON_L1 -> Btn.L1
-        KeyEvent.KEYCODE_BUTTON_R1 -> Btn.R1
-        KeyEvent.KEYCODE_BUTTON_THUMBL -> Btn.L3
-        KeyEvent.KEYCODE_BUTTON_THUMBR -> Btn.R3
-        KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_MENU -> Btn.START
-        KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BACK -> Btn.SELECT
-        KeyEvent.KEYCODE_BUTTON_MODE -> Btn.PS
-        KeyEvent.KEYCODE_DPAD_UP -> Btn.UP
-        KeyEvent.KEYCODE_DPAD_DOWN -> Btn.DOWN
-        KeyEvent.KEYCODE_DPAD_LEFT -> Btn.LEFT
-        KeyEvent.KEYCODE_DPAD_RIGHT -> Btn.RIGHT
-        // Some pads report triggers as buttons rather than axes
-        KeyEvent.KEYCODE_BUTTON_L2 -> Btn.L2
-        KeyEvent.KEYCODE_BUTTON_R2 -> Btn.R2
-        else -> -1
-    }
+    private fun keyIndex(keyCode: Int): Int = keyMapping[keyCode] ?: -1
 
     /** Returns true if the event was a controller input we consumed. */
     fun onKey(event: KeyEvent): Boolean {

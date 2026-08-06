@@ -25,7 +25,7 @@ import kotlin.concurrent.thread
  */
 class SettingsActivity : AppCompatActivity() {
 
-    private enum class Category { QUICK, FOLDERS, ABOUT }
+    private enum class Category { QUICK, CONTROLS, FOLDERS, ABOUT }
 
     private lateinit var pane: LinearLayout
     private var category = Category.QUICK
@@ -126,6 +126,7 @@ class SettingsActivity : AppCompatActivity() {
         return TextView(this).apply {
             text = getString(when (cat) {
                 Category.QUICK -> R.string.cat_quick
+                Category.CONTROLS -> R.string.cat_controls
                 Category.FOLDERS -> R.string.section_folders
                 Category.ABOUT -> R.string.section_about
             })
@@ -162,6 +163,7 @@ class SettingsActivity : AppCompatActivity() {
         pane.removeAllViews()
         when (category) {
             Category.QUICK -> renderQuick()
+            Category.CONTROLS -> renderControls()
             Category.FOLDERS -> renderFolders()
             Category.ABOUT -> renderAbout()
         }
@@ -188,26 +190,6 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderQuick() {
-        val overlayModes = listOf(
-            getString(R.string.seg_auto), getString(R.string.seg_always), getString(R.string.seg_off)
-        )
-        val overlaySelected = when (Settings.touchOverlayMode(this)) {
-            Settings.TouchOverlayMode.AUTO -> 0
-            Settings.TouchOverlayMode.ALWAYS -> 1
-            Settings.TouchOverlayMode.NEVER -> 2
-        }
-        row(
-            getString(R.string.row_touch_overlay),
-            getString(R.string.row_touch_overlay_sub),
-            Ui.segmented(this, overlayModes, overlaySelected) { i ->
-                Settings.setTouchOverlayMode(this, when (i) {
-                    1 -> Settings.TouchOverlayMode.ALWAYS
-                    2 -> Settings.TouchOverlayMode.NEVER
-                    else -> Settings.TouchOverlayMode.AUTO
-                })
-            }
-        )
-
         val drivers = GpuDriver.installed(this)
         val selected = Settings.gpuDriver(this)
         val names = listOf(getString(R.string.gpu_driver_system)) + drivers.map { it.name }
@@ -241,6 +223,78 @@ class SettingsActivity : AppCompatActivity() {
                 if (Settings.onlineData(this)) 1 else 0
             ) { i -> Settings.setOnlineData(this, i == 1) }
         )
+    }
+
+    private fun renderControls() {
+        val overlayModes = listOf(
+            getString(R.string.seg_auto), getString(R.string.seg_always), getString(R.string.seg_off)
+        )
+        val overlaySelected = when (Settings.touchOverlayMode(this)) {
+            Settings.TouchOverlayMode.AUTO -> 0
+            Settings.TouchOverlayMode.ALWAYS -> 1
+            Settings.TouchOverlayMode.NEVER -> 2
+        }
+        row(
+            getString(R.string.row_touch_overlay),
+            getString(R.string.row_touch_overlay_sub),
+            Ui.segmented(this, overlayModes, overlaySelected) { i ->
+                Settings.setTouchOverlayMode(this, when (i) {
+                    1 -> Settings.TouchOverlayMode.ALWAYS
+                    2 -> Settings.TouchOverlayMode.NEVER
+                    else -> Settings.TouchOverlayMode.AUTO
+                })
+            }
+        )
+
+        row(
+            getString(R.string.row_overlay_opacity),
+            getString(R.string.row_overlay_opacity_sub),
+            slider(min = 20, max = 100, value = Settings.overlayOpacity(this)) {
+                Settings.setOverlayOpacity(this, it)
+            }
+        )
+        row(
+            getString(R.string.row_overlay_scale),
+            getString(R.string.row_overlay_scale_sub),
+            slider(min = 60, max = 150, value = Settings.overlayScale(this)) {
+                Settings.setOverlayScale(this, it)
+            }
+        )
+
+        pane.addView(Ui.actionButton(this, getString(R.string.map_buttons), primary = false) {
+            startActivity(android.content.Intent(this, ControllerMappingActivity::class.java))
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(14) }
+        })
+    }
+
+    /** Percent slider with a live value label. */
+    private fun slider(min: Int, max: Int, value: Int, onChange: (Int) -> Unit): LinearLayout {
+        val rowView = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+        }
+        val label = Ui.body(this, "$value%", Ui.INK, 13f)
+        val bar = android.widget.SeekBar(this).apply {
+            this.min = min
+            this.max = max
+            progress = value
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+                    label.text = "$p%"
+                    if (fromUser) onChange(p)
+                }
+                override fun onStartTrackingTouch(sb: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(sb: android.widget.SeekBar?) {}
+            })
+        }
+        rowView.addView(bar, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        rowView.addView(label, LinearLayout.LayoutParams(dp(52), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            marginStart = dp(8)
+        })
+        return rowView
     }
 
     private fun renderFolders() {

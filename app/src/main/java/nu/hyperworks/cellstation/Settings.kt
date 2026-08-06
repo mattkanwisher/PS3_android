@@ -98,6 +98,24 @@ object Settings {
         prefs(context).edit().putBoolean(KEY_ONLINE_DATA, enabled).apply()
     }
 
+    /** On-screen controller opacity, percent 20..100. */
+    fun overlayOpacity(context: Context): Int =
+        prefs(context).getInt(KEY_OVERLAY_OPACITY, 100).coerceIn(20, 100)
+
+    fun setOverlayOpacity(context: Context, percent: Int) {
+        prefs(context).edit().putInt(KEY_OVERLAY_OPACITY, percent.coerceIn(20, 100)).apply()
+    }
+
+    /** On-screen controller size, percent 60..150. */
+    fun overlayScale(context: Context): Int =
+        prefs(context).getInt(KEY_OVERLAY_SCALE, 100).coerceIn(60, 150)
+
+    fun setOverlayScale(context: Context, percent: Int) {
+        prefs(context).edit().putInt(KEY_OVERLAY_SCALE, percent.coerceIn(60, 150)).apply()
+    }
+
+    private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
+    private const val KEY_OVERLAY_SCALE = "overlay_scale"
     private const val KEY_ONLINE_DATA = "online_data"
     private const val KEY_GPU_DRIVER = "gpu_driver"
     private const val KEY_LAST_PLAYED = "last_played"

@@ -47,6 +47,11 @@
             android:exported="false"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".ControllerMappingActivity"
+            android:exported="false"
+            android:parentActivityName=".SettingsActivity" />
+
         <!-- Public launch-intent contract (docs/INTENTS.md): frontends like
              Cocoon/Daijisho boot games directly into this activity. -->
         <activity

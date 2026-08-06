@@ -49,6 +49,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         frame = FrameLayout(this)
         frame.addView(surfaceView)
 
+        pad.keyMapping = KeyMap.load(this)
         overlayMode = Settings.touchOverlayMode(this)
         if (overlayMode != Settings.TouchOverlayMode.NEVER) {
             overlay = TouchOverlayView(this, pad).also { frame.addView(it) }
