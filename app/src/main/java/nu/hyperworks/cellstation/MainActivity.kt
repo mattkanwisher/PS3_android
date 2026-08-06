@@ -120,7 +120,11 @@ class MainActivity : AppCompatActivity() {
             query = it.getString(STATE_QUERY, "")
         }
 
-        if (!Settings.setupDone(this)) {
+        // Everyone sees the wizard once; afterwards it only returns while
+        // setup is genuinely incomplete and hasn't been explicitly dismissed.
+        val setupComplete = EmuBridge.firmwareVersion().isNotEmpty() &&
+            hasStorageAccess() && Settings.gpuDriver(this).isNotEmpty()
+        if (!Settings.setupSeen(this) || (!Settings.setupDone(this) && !setupComplete)) {
             startActivity(Intent(this, WelcomeActivity::class.java))
         }
 
@@ -343,12 +347,20 @@ class MainActivity : AppCompatActivity() {
             if (fw.isEmpty()) Ui.WARN else Ui.OK
         )
         val driver = Settings.gpuDriver(this)
+        // Human name from driver metadata, compacted for the rail ("Mesa
+        // Turnip driver v26.0.0 - R8" -> "Turnip 26.0.0").
+        val driverLabel = if (driver.isEmpty()) null else {
+            val name = GpuDriver.find(this, driver)?.name ?: driver
+            Regex("""[Tt]urnip.*?v?(\d+[\d.]*)""").find(name)
+                ?.let { "Turnip ${it.groupValues[1].trimEnd('.')}" }
+                ?: name.take(18)
+        }
         add(
             if (land) {
-                if (driver.isEmpty()) getString(R.string.chip_driver_system)
-                else getString(R.string.chip_driver, driver.take(14))
+                if (driverLabel == null) getString(R.string.chip_driver_system)
+                else getString(R.string.chip_driver, driverLabel)
             } else "GPU",
-            if (driver.isEmpty()) Ui.WARN else Ui.OK
+            if (driverLabel == null) Ui.WARN else Ui.OK
         )
         if (scanning && land) add(getString(R.string.chip_scanning), Ui.WARN)
     }

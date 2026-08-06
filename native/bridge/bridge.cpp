@@ -39,6 +39,7 @@
 #include "Emu/Cell/Modules/sceNpTrophy.h"
 #include "Input/pad_thread.h"
 #include "android_pad_handler.h"
+#include "Loader/ISO.h"
 #include "Loader/PUP.h"
 #include "Loader/TAR.h"
 #include "Crypto/unself.h"
@@ -668,6 +669,39 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_installFirmw
 JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_firmwareVersion(JNIEnv* env, jclass)
 {
 	return env->NewStringUTF(utils::get_firmware_version().c_str());
+}
+
+// Pulls PARAM.SFO / ICON0.PNG out of a disc image into out_dir using the
+// core's own ISO reader, so the library can show real titles and tile art
+// for .iso games. Uses the same virtual-device slot as booting an ISO does,
+// hence the stopped-emulator guard.
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_extractIsoAssets(JNIEnv* env, jclass, jstring jiso, jstring jout)
+{
+	const std::string iso = jstr(env, jiso);
+	const std::string out = jstr(env, jout);
+
+	if (!Emu.IsStopped() || !is_iso_file(iso))
+		return JNI_FALSE;
+
+	fs::set_virtual_device("iso_overlay_fs_dev", stx::make_shared<iso_device>(iso));
+
+	bool any = false;
+	for (const char* name : {"PS3_GAME/PARAM.SFO", "PS3_GAME/ICON0.PNG"})
+	{
+		fs::file src(iso_device::virtual_device_name + "/" + name);
+		if (!src)
+			continue;
+
+		const std::string base = std::string(name).substr(std::string(name).find('/') + 1);
+		if (fs::file dst(out + "/" + base, fs::rewrite); dst)
+		{
+			dst.write(src.to_vector<u8>());
+			any = true;
+		}
+	}
+
+	fs::set_virtual_device("iso_overlay_fs_dev", stx::shared_ptr<iso_device>());
+	return any ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jint JNICALL Java_nu_hyperworks_cellstation_EmuBridge_boot(JNIEnv* env, jclass, jstring jpath)

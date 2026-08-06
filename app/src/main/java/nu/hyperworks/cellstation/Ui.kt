@@ -87,7 +87,10 @@ object Ui {
                     marginEnd = context.dp(6)
                 }
             })
-            addView(body(context, label, MUTED, 11.5f).apply { maxLines = 1 })
+            addView(body(context, label, MUTED, 11.5f).apply {
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            })
         }
 
     /** Primary (accent) or secondary action button used by sheets and the wizard. */

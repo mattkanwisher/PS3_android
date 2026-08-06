@@ -30,6 +30,18 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var pane: LinearLayout
     private var category = Category.QUICK
 
+    private val pickScanFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri ?: return@registerForActivityResult
+        val path = BootTarget.pathFromTreeUri(uri)
+        if (path == null) {
+            Toast.makeText(this, R.string.folder_unreadable, Toast.LENGTH_LONG).show()
+        } else {
+            Settings.addScanFolder(this, path)
+            Toast.makeText(this, getString(R.string.folder_added, path), Toast.LENGTH_SHORT).show()
+            renderPane()
+        }
+    }
+
     private val pickDriver = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@registerForActivityResult
         thread {
@@ -320,22 +332,38 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun renderFolders() {
-        val folders = Settings.scanFolders(this).sorted()
-        if (folders.isEmpty()) {
-            pane.addView(Ui.body(this, getString(R.string.no_scan_folders), Ui.MUTED, 14f))
-        } else {
-            for (path in folders) {
-                val missing = if (File(path).isDirectory) "" else getString(R.string.folder_missing)
-                row(
-                    path.substringAfterLast('/'),
-                    path + missing,
-                    Ui.actionButton(this, getString(R.string.remove), primary = false) {
-                        Settings.removeScanFolder(this, path)
-                        renderPane()
-                    }
-                )
-            }
+        // Built-in roots are always scanned; show them so nobody wonders where
+        // games are picked up from.
+        for (root in GameLibrary.searchRoots()) {
+            row(
+                root.absolutePath.substringAfterLast('/'),
+                root.absolutePath +
+                    if (root.isDirectory) "" else getString(R.string.folder_missing),
+                Ui.statusChip(this, getString(R.string.folder_builtin),
+                    if (root.isDirectory) Ui.OK else Ui.MUTED)
+            )
         }
+
+        val folders = Settings.scanFolders(this).sorted()
+        for (path in folders) {
+            val missing = if (File(path).isDirectory) "" else getString(R.string.folder_missing)
+            row(
+                path.substringAfterLast('/'),
+                path + missing,
+                Ui.actionButton(this, getString(R.string.remove), primary = false) {
+                    Settings.removeScanFolder(this, path)
+                    renderPane()
+                }
+            )
+        }
+
+        pane.addView(Ui.actionButton(this, getString(R.string.add_scan_folder), primary = true) {
+            pickScanFolder.launch(null)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = dp(12) }
+        })
 
         if (Settings.hiddenGames(this).isNotEmpty()) {
             pane.addView(Ui.actionButton(

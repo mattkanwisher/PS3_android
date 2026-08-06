@@ -32,6 +32,8 @@
     <string name="no_scan_folders">None yet — add one with Menu → Scan folder on the library screen.</string>
     <string name="remove_folder">Remove %1$s</string>
     <string name="folder_missing"> (missing)</string>
+    <string name="folder_builtin">Built-in</string>
+    <string name="add_scan_folder">Add folder…</string>
     <string name="stretch_to_display">Stretch to fill the screen</string>
     <string name="stretch_to_display_hint">Off (default): the game\'s own aspect ratio is kept, with black bars. On: the image is stretched to fill the display.</string>
     <string name="no_boot_path">No boot path provided.</string>

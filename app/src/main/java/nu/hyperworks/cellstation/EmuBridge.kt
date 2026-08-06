@@ -33,6 +33,12 @@ object EmuBridge {
 
     external fun firmwareVersion(): String
 
+    /**
+     * Extracts PARAM.SFO / ICON0.PNG from a disc image into [outDir] using the
+     * core's ISO reader. No-op while a game is running.
+     */
+    external fun extractIsoAssets(isoPath: String, outDir: String): Boolean
+
     /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */
     external fun boot(path: String): Int
 

@@ -90,6 +90,20 @@ object Settings {
         prefs(context).edit().putBoolean(KEY_SETUP_DONE, true).apply()
     }
 
+    /**
+     * True once the wizard has been shown at all — even if the user backed out
+     * without finishing. Everyone sees the wizard exactly once; after that it
+     * only reappears while setup is actually incomplete.
+     */
+    fun setupSeen(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_SETUP_SEEN, false)
+
+    fun markSetupSeen(context: Context) {
+        prefs(context).edit().putBoolean(KEY_SETUP_SEEN, true).apply()
+    }
+
+    private const val KEY_SETUP_SEEN = "setup_seen"
+
     /** Boot paths the user removed from the library view (files stay on disk). */
     fun hiddenGames(context: Context): Set<String> =
         prefs(context).getStringSet(KEY_HIDDEN_GAMES, emptySet()).orEmpty()

@@ -61,6 +61,7 @@ class WelcomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Settings.markSetupSeen(this)
         rebuild()
     }
 
@@ -157,14 +158,16 @@ class WelcomeActivity : AppCompatActivity() {
         }
 
         val driver = Settings.gpuDriver(this)
+        // Show the driver's human name from its metadata, not the directory slug.
+        val driverName = if (driver.isEmpty()) null else (GpuDriver.find(this, driver)?.name ?: driver)
         addStep(
             land,
             n = 3,
             title = getString(R.string.step_driver),
             note = getString(R.string.step_driver_note),
-            stateLabel = if (driver.isEmpty()) getString(R.string.chip_driver_system)
-                         else getString(R.string.chip_driver, driver),
-            stateColor = if (driver.isEmpty()) Ui.WARN else Ui.OK,
+            stateLabel = if (driverName == null) getString(R.string.chip_driver_system)
+                         else getString(R.string.chip_driver, driverName),
+            stateColor = if (driverName == null) Ui.WARN else Ui.OK,
             action = getString(R.string.step_driver_action)
         ) {
             startActivity(Intent(this, SettingsActivity::class.java))

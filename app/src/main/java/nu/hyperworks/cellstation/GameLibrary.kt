@@ -1,5 +1,6 @@
 package nu.hyperworks.cellstation
 
+import android.content.Context
 import android.os.Environment
 import java.io.File
 import java.util.Locale
@@ -77,12 +78,48 @@ object GameLibrary {
 
         val name = file.name.lowercase(Locale.ROOT)
         return when {
-            name.endsWith(".iso") ->
-                Entry(file.nameWithoutExtension, file.absolutePath, Kind.DISC_IMAGE, file.length())
+            name.endsWith(".iso") -> {
+                // Disc images carry PARAM.SFO/ICON0.PNG inside the image; the
+                // bridge extracts them once into an app-private cache keyed by
+                // (path, size, mtime) so a re-copied image refreshes.
+                val meta = isoMetaDir(file)
+                val sfo = meta?.let { ParamSfo.parse(File(it, "PARAM.SFO")) }
+                val icon = meta?.let { m -> File(m, "ICON0.PNG").takeIf { it.isFile } }
+                Entry(
+                    title = sfo?.get("TITLE")?.lineSequence()?.first()?.trim().takeUnless { it.isNullOrEmpty() }
+                        ?: file.nameWithoutExtension,
+                    bootPath = file.absolutePath,
+                    kind = Kind.DISC_IMAGE,
+                    sizeBytes = file.length(),
+                    serial = sfo?.get("TITLE_ID"),
+                    iconPath = icon?.absolutePath
+                )
+            }
             name.endsWith(".elf") || name.endsWith(".self") || name.endsWith(".bin") ->
                 Entry(file.name, file.absolutePath, Kind.HOMEBREW, file.length())
             else -> null
         }
+    }
+
+    /**
+     * App context for the ISO metadata cache; set once at startup. Kept as a
+     * nullable so `classify` degrades to filename titles if scanning happens
+     * before init (it doesn't today).
+     */
+    @Volatile var appContext: Context? = null
+
+    private fun isoMetaDir(iso: File): File? {
+        val context = appContext ?: return null
+        val key = "${iso.absolutePath}|${iso.length()}|${iso.lastModified()}".hashCode().toUInt().toString(16)
+        val dir = File(File(context.filesDir, "iso_meta"), key)
+        val stamp = File(dir, ".done")
+        if (stamp.isFile) return dir
+        dir.mkdirs()
+        // One attempt per (path,size,mtime); a stamp with no PARAM.SFO next to
+        // it means "tried, nothing extractable" and stops rescan churn.
+        EmuBridge.extractIsoAssets(iso.absolutePath, dir.absolutePath)
+        stamp.writeText("")
+        return dir
     }
 
     private fun ebootIn(dir: File): File? {
