@@ -1,0 +1,26 @@
+--- a/Utilities/JITLLVM.cpp
++++ b/Utilities/JITLLVM.cpp
+@@ -255,12 +255,23 @@
+ 
+ 	~MemoryManager1() override
+ 	{
++#ifdef __ANDROID__
++		// Android gives a process orders of magnitude less address space than a
++		// desktop, and the emulator already reserves ~80 GiB for the PS3 memory
++		// map. Leaking 768 MiB per compiled module (see below) exhausts what is
++		// left after a few dozen modules: mmap starts failing and scudo aborts
++		// the process mid-compile, so large titles never finish their first
++		// boot. Give the range back instead — the reuse concern below only
++		// affects JIT symbol announcement for debugging.
++		utils::memory_release(m_code_mems, c_max_size * 3);
++#else
+ 		// Hack: don't release to prevent reuse of address space, see jit_announce
+ 		// constexpr auto how_much = [](u64 pos) { return utils::align(pos, pos < c_page_size ? c_page_size / 4 : c_page_size); };
+ 		// utils::memory_decommit(m_code_mems, how_much(code_ptr));
+ 		// utils::memory_decommit(m_data_ro_mems, how_much(data_ro_ptr));
+ 		// utils::memory_decommit(m_data_rw_mems, how_much(data_rw_ptr));
+ 		utils::memory_decommit(m_code_mems, c_max_size * 3, true);
++#endif
+ 	}
+ 
+ 	llvm::JITSymbol findSymbol(const std::string& name) override

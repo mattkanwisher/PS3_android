@@ -107,3 +107,14 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
     DroidSans, plus NotoSansCJK for CJK and hangul); the embedder supplies
     `/system/fonts/` et al through `get_font_dirs`. Upstream-status:
     candidate.
+16. `0016-jit-release-address-space-android.patch` — every LLVM compile
+    creates a `MemoryManager1` that reserves 768 MiB (3 × 256 MiB) of
+    address space and, by design, never releases it — only decommits, so
+    RSS stays flat while VmSize grows. On desktop that is free; on Android
+    the process starts ~78 GiB deep (the PS3 memory map) and runs out after
+    a few dozen modules: `mmap` fails and scudo aborts mid-compile, so
+    large titles never finish their first boot. Release the range on
+    Android instead (the "don't reuse addresses" concern only affects JIT
+    symbol announcement for debuggers). Measured on a heavy disc title:
+    VmSize climbed 82 → 125 GiB and aborted; with this patch it stays flat
+    at ~78 GiB and the compile completes. Upstream-status: candidate.
