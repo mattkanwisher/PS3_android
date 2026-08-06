@@ -672,8 +672,16 @@ class MainActivity : AppCompatActivity() {
             gameDetails(entry)
         })
         // Only meaningful for titles that carry a serial — that is the key
-        // rpcs3 files the compiled caches under.
+        // rpcs3 files the compiled caches and custom configs under.
         entry.serial?.let { serial ->
+            addAction(Ui.actionButton(this, getString(R.string.sheet_game_settings), primary = false) {
+                dialog.dismiss()
+                startActivity(
+                    Intent(this, GameSettingsActivity::class.java)
+                        .putExtra(GameSettingsActivity.EXTRA_SERIAL, serial)
+                        .putExtra(GameSettingsActivity.EXTRA_TITLE, entry.title)
+                )
+            })
             addAction(Ui.actionButton(this, getString(R.string.sheet_clear_cache), primary = false) {
                 dialog.dismiss()
                 AlertDialog.Builder(this)

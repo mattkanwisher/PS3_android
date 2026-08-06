@@ -46,6 +46,26 @@ object EmuBridge {
      */
     external fun clearGameCache(serial: String): Long
 
+    /**
+     * Per-game settings (config/custom_configs/config_<SERIAL>.yml). The core
+     * applies these on top of the global config when booting, so a game that
+     * needs a compatibility setting doesn't impose it on the whole library.
+     * [path] is "Section/Setting" exactly as the names appear in config.yml,
+     * e.g. "Core/SPU XFloat Accuracy".
+     */
+    external fun gameConfigGet(serial: String, path: String): String
+
+    /** Accepted values for [path], newline-separated; empty when unknown. */
+    external fun gameConfigOptions(path: String): String
+
+    external fun gameConfigSet(serial: String, path: String, value: String): Boolean
+
+    /** True when this game has an override file at all. */
+    external fun gameConfigExists(serial: String): Boolean
+
+    /** Deletes the override file so the game follows the global config again. */
+    external fun gameConfigReset(serial: String): Boolean
+
     /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */
     external fun boot(path: String): Int
 

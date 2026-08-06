@@ -56,6 +56,12 @@
             android:screenOrientation="sensorLandscape"
             android:parentActivityName=".SettingsActivity" />
 
+        <activity
+            android:name=".GameSettingsActivity"
+            android:exported="false"
+            android:screenOrientation="sensorLandscape"
+            android:parentActivityName=".MainActivity" />
+
         <!-- Public launch-intent contract (docs/INTENTS.md): frontends like
              Cocoon/Daijisho boot games directly into this activity. -->
         <activity

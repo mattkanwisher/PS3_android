@@ -495,6 +495,79 @@ namespace
 		Emulator::SaveSettings(cfg.to_string(), {});
 	}
 
+	// A serial reaches the filesystem via get_custom_config_path, so keep it to
+	// a bare identifier rather than something that can escape the config dir.
+	bool valid_serial(const std::string& serial)
+	{
+		return !serial.empty()
+			&& serial.find('/') == std::string::npos
+			&& serial.find('\\') == std::string::npos
+			&& serial.find("..") == std::string::npos;
+	}
+
+	// Resolves a "Section/Setting" path (the names as they appear in the YAML)
+	// to its config node, so the app can drive settings without the bridge
+	// hardcoding a type for each one.
+	cfg::_base* find_config_node(cfg::node& root, std::string_view path)
+	{
+		cfg::_base* current = &root;
+
+		for (usz pos = 0; pos <= path.size();)
+		{
+			const usz sep = path.find('/', pos);
+			const std::string_view part = path.substr(pos, sep == umax ? umax : sep - pos);
+
+			if (current->get_type() != cfg::type::node)
+			{
+				return nullptr;
+			}
+
+			cfg::_base* found = nullptr;
+			for (cfg::_base* child : static_cast<cfg::node*>(current)->get_nodes())
+			{
+				if (child->get_name() == part)
+				{
+					found = child;
+					break;
+				}
+			}
+
+			if (!found)
+			{
+				return nullptr;
+			}
+
+			current = found;
+
+			if (sep == umax)
+			{
+				break;
+			}
+
+			pos = sep + 1;
+		}
+
+		return current == &root ? nullptr : current;
+	}
+
+	// Per-game config as the core will see it: the global config with the
+	// game's overrides applied on top, matching what Emulator::Load does for
+	// cfg_mode::custom.
+	std::unique_ptr<cfg_root> load_game_config(const std::string& serial)
+	{
+		auto cfg = load_global_config();
+
+		if (const fs::file file{rpcs3::utils::get_custom_config_path(serial)})
+		{
+			if (!cfg->from_string(file.to_string()))
+			{
+				cellstation_log.error("Failed to parse the custom config for %s", serial);
+			}
+		}
+
+		return cfg;
+	}
+
 	// Lean port of main_window::HandlePupInstallation (no dialogs/progress UI).
 	bool install_firmware(const std::string& path)
 	{
@@ -771,6 +844,132 @@ JNIEXPORT jlong JNICALL Java_nu_hyperworks_cellstation_EmuBridge_clearGameCache(
 
 	cellstation_log.success("Cleared %s cache (%lluK)", serial, freed / 1024);
 	return static_cast<jlong>(freed);
+}
+
+// Per-game settings live in config/custom_configs/config_<SERIAL>.yml, which
+// Emulator::Load already applies on top of the global config when booting with
+// cfg_mode::custom (what boot() uses). These four entry points are all the app
+// needs to create, read, edit and drop one.
+
+JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigGet(JNIEnv* env, jclass, jstring jserial, jstring jpath)
+{
+	const std::string serial = jstr(env, jserial);
+	const std::string path = jstr(env, jpath);
+
+	if (!valid_serial(serial))
+		return env->NewStringUTF("");
+
+	auto cfg = load_game_config(serial);
+	const cfg::_base* node = find_config_node(*cfg, path);
+
+	return env->NewStringUTF(node ? node->to_string().c_str() : "");
+}
+
+// Newline-separated list of accepted values, so the app can render a picker
+// without duplicating rpcs3's enum names.
+JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigOptions(JNIEnv* env, jclass, jstring jpath)
+{
+	const std::string path = jstr(env, jpath);
+
+	cfg_root defaults;
+	const cfg::_base* node = find_config_node(defaults, path);
+
+	if (!node)
+		return env->NewStringUTF("");
+
+	std::string result;
+
+	if (node->get_type() == cfg::type::_bool)
+	{
+		result = "false\ntrue";
+	}
+	else
+	{
+		for (const std::string& value : node->to_list())
+		{
+			if (!result.empty()) result += '\n';
+			result += value;
+		}
+	}
+
+	return env->NewStringUTF(result.c_str());
+}
+
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigSet(JNIEnv* env, jclass, jstring jserial, jstring jpath, jstring jvalue)
+{
+	const std::string serial = jstr(env, jserial);
+	const std::string path = jstr(env, jpath);
+	const std::string value = jstr(env, jvalue);
+
+	if (!valid_serial(serial))
+		return JNI_FALSE;
+
+	auto cfg = load_game_config(serial);
+	cfg::_base* node = find_config_node(*cfg, path);
+
+	if (!node || !node->from_string(value))
+	{
+		cellstation_log.error("Rejected per-game setting %s = '%s' for %s", path, value, serial);
+		return JNI_FALSE;
+	}
+
+	// SaveSettings writes through fs::pending_file, which does not create
+	// missing parents — on a fresh install nothing has made custom_configs/ yet.
+	const std::string dir = rpcs3::utils::get_custom_config_dir();
+	if (!fs::is_dir(dir) && !fs::create_path(dir))
+	{
+		cellstation_log.error("Failed to create %s: %s", dir, fs::g_tls_error);
+		return JNI_FALSE;
+	}
+
+	// Writes the whole config, matching how rpcs3 stores custom configs: a
+	// snapshot of the global settings with this game's changes folded in.
+	const std::string file = rpcs3::utils::get_custom_config_path(serial);
+	Emulator::SaveSettings(cfg->to_string(), serial);
+
+	// SaveSettings reports failure to the log and returns void, so confirm the
+	// file actually landed rather than telling the app it worked.
+	if (!fs::is_file(file))
+	{
+		cellstation_log.error("Per-game config for %s was not written", serial);
+		return JNI_FALSE;
+	}
+
+	cellstation_log.success("Per-game setting for %s: %s = %s", serial, path, value);
+	return JNI_TRUE;
+}
+
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigExists(JNIEnv* env, jclass, jstring jserial)
+{
+	const std::string serial = jstr(env, jserial);
+
+	if (!valid_serial(serial))
+		return JNI_FALSE;
+
+	return fs::is_file(rpcs3::utils::get_custom_config_path(serial)) ? JNI_TRUE : JNI_FALSE;
+}
+
+// Drops the override file so the game falls back to the global config.
+JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_gameConfigReset(JNIEnv* env, jclass, jstring jserial)
+{
+	const std::string serial = jstr(env, jserial);
+
+	if (!valid_serial(serial))
+		return JNI_FALSE;
+
+	const std::string path = rpcs3::utils::get_custom_config_path(serial);
+
+	if (!fs::is_file(path))
+		return JNI_TRUE;
+
+	if (!fs::remove_file(path))
+	{
+		cellstation_log.error("Failed to remove the custom config for %s", serial);
+		return JNI_FALSE;
+	}
+
+	cellstation_log.success("Removed the custom config for %s", serial);
+	return JNI_TRUE;
 }
 
 // Pulls PARAM.SFO / ICON0.PNG out of a disc image into out_dir using the
