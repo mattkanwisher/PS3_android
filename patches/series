@@ -15,3 +15,4 @@
 0014-vk-adreno-gpu-memory-management.patch
 0015-overlay-fonts-android-system-fonts.patch
 0016-vk-unknown-gpu-safe-transport.patch
+0017-android-big-core-affinity.patch

@@ -1,0 +1,238 @@
+--- a/Utilities/Thread.h
++++ b/Utilities/Thread.h
+@@ -13,7 +13,8 @@
+ 	undefined,
+ 	generic,
+ 	intel_ht,
+-	amd_ccx
++	amd_ccx,
++	arm_big_little
+ };
+ 
+ enum class thread_class : u32
+--- a/Utilities/Thread.cpp
++++ b/Utilities/Thread.cpp
+@@ -8,6 +8,12 @@
+ #include "Emu/RSX/RSXThread.h"
+ #include "Thread.h"
+ #include "Utilities/JIT.h"
++#ifdef ANDROID
++#include <bit>
++#include <cstdio>
++#include <fcntl.h>
++#include <unistd.h>
++#endif
+ #include <cfenv>
+ 
+ #ifdef ARCH_ARM64
+@@ -2745,6 +2751,11 @@
+ thread_local DECLARE(thread_ctrl::g_tls_error_callback) = nullptr;
+ 
+ DECLARE(thread_ctrl::g_native_core_layout) { native_core_arrangement::undefined };
++
++#ifdef ANDROID
++// Big-core mask discovered by detect_cpu_layout(); 0 until that has run.
++static u64 g_android_big_core_mask = 0;
++#endif
+ 
+ void thread_base::start()
+ {
+@@ -3554,7 +3565,76 @@
+ {
+ 	if (!g_native_core_layout.compare_and_swap_test(native_core_arrangement::undefined, native_core_arrangement::generic))
+ 		return;
++
++#ifdef ANDROID
++	// Phone SoCs are big.LITTLE. Recompiled SPU code is sustained 128-bit NEON,
++	// which is the worst case for the little cores (Cortex-A510 class), and
++	// nothing here stops the scheduler parking SPU workers on them — measured
++	// ~39% little-core residency on a Snapdragon 8 Gen 2 before this.
++	//
++	// Classify by the kernel's own frequency table rather than by core ID:
++	// core ordering is not architectural, and there is no equivalent of the
++	// x86 brand-string sniffing below.
++	//
++	// Deliberately plain POSIX I/O: this runs while the first CPU thread is
++	// starting up, before it is safe to assume anything about rpcs3's own file
++	// layer being ready.
++	{
++		u64 big_mask = 0;
++		u32 max_khz = 0;
++		u32 khz[64] = {};
+ 
++		const u32 cores = std::min<u32>(::sysconf(_SC_NPROCESSORS_CONF), 64);
++
++		for (u32 i = 0; i < cores; i++)
++		{
++			char path[128];
++			std::snprintf(path, sizeof(path), "/sys/devices/system/cpu/cpu%u/cpufreq/cpuinfo_max_freq", i);
++
++			const int fd = ::open(path, O_RDONLY | O_CLOEXEC);
++			if (fd < 0) continue;
++
++			char buf[32] = {};
++			const ssize_t n = ::read(fd, buf, sizeof(buf) - 1);
++			::close(fd);
++
++			if (n > 0)
++			{
++				khz[i] = static_cast<u32>(std::strtoul(buf, nullptr, 10));
++				max_khz = std::max(max_khz, khz[i]);
++			}
++		}
++
++		if (max_khz)
++		{
++			// Anything within 20% of the fastest core counts as "big". On a
++			// 1+4+3 part that keeps the prime and mid cores and drops the
++			// littles; on a uniform SoC every core qualifies and the mask ends
++			// up equivalent to no pinning at all, which is the safe outcome.
++			const u32 cutoff = max_khz - (max_khz / 5);
++
++			for (u32 i = 0; i < cores; i++)
++			{
++				if (khz[i] >= cutoff)
++				{
++					big_mask |= u64{1} << i;
++				}
++			}
++		}
++
++		// Refuse to pin to fewer cores than the emulator needs concurrently;
++		// oversubscribing two cores would be worse than letting the scheduler
++		// spread out.
++		if (std::popcount(big_mask) >= 4 && static_cast<u32>(std::popcount(big_mask)) < cores)
++		{
++			g_android_big_core_mask = big_mask;
++			g_native_core_layout.store(native_core_arrangement::arm_big_little);
++		}
++
++		return;
++	}
++#endif
++
+ 	const auto system_id = utils::get_cpu_brand();
+ 	if (system_id.find("Ryzen") != umax)
+ 	{
+@@ -3623,6 +3703,23 @@
+ 		case native_core_arrangement::generic:
+ 		{
+ 			return all_cores_mask;
++		}
++		case native_core_arrangement::arm_big_little:
++		{
++			// Keep the emulated CPUs and the RSX thread off the little cores.
++			// Everything else (compiler workers, audio, helpers) is left to the
++			// scheduler — they are either short-lived or latency-insensitive,
++			// and crowding them onto the big cores would just contend with the
++			// threads that actually need them.
++			switch (group)
++			{
++			case thread_class::ppu:
++			case thread_class::spu:
++			case thread_class::rsx:
++				return g_android_big_core_mask ? g_android_big_core_mask : all_cores_mask;
++			default:
++				return all_cores_mask;
++			}
+ 		}
+ 		case native_core_arrangement::amd_ccx:
+ 		{
+@@ -3890,13 +3987,23 @@
+ 	thread_affinity_policy_data_t policy = { static_cast<integer_t>(std::countr_zero(mask)) };
+ 	thread_port_t mach_thread = pthread_mach_thread_np(pthread_self());
+ 	thread_policy_set(mach_thread, THREAD_AFFINITY_POLICY, reinterpret_cast<thread_policy_t>(&policy), !mask ? 0 : 1);
+-#elif !defined(ANDROID) && (defined(__linux__) || defined(__DragonFly__) || defined(__FreeBSD__))
++#elif defined(__linux__) || defined(__DragonFly__) || defined(__FreeBSD__)
++	// Android was excluded here upstream because bionic has no
++	// pthread_setaffinity_np. It does have sched_setaffinity, which is enough
++	// for a process to pin its own threads, so the mask logic is shared and
++	// only the syscall differs (see below).
+ 	if (!mask)
+ 	{
+ 		// Reset affinity mask
+ 		mask = process_affinity_mask;
+ 	}
+ 
++	if (!mask)
++	{
++		// Nothing sensible to ask for — an empty cpu_set is just an EINVAL.
++		return;
++	}
++
+ 	cpu_set_t cs;
+ 	CPU_ZERO(&cs);
+ 
+@@ -3918,11 +4025,20 @@
+ 		}
+ 	}
+ 
++#ifdef ANDROID
++	// Bionic has no pthread_setaffinity_np — this is why Android was excluded
++	// here upstream. sched_setaffinity with pid 0 means "the calling thread".
++	if (sched_setaffinity(0, sizeof(cpu_set_t), &cs) != 0)
++	{
++		sig_log.error("Failed to set thread affinity 0x%x: errno %d.", mask, errno);
++	}
++#else
+ 	if (int err = pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cs))
+ 	{
+ 		sig_log.error("Failed to set thread affinity 0x%x: error %d.", mask, err);
+ 	}
+ #endif
++#endif
+ }
+ 
+ u64 thread_ctrl::get_thread_affinity_mask()
+@@ -3942,15 +4058,26 @@
+ 
+ 	sig_log.error("Failed to get thread affinity mask.");
+ 	return 0;
+-#elif !defined(ANDROID) && (defined(__linux__) || defined(__DragonFly__) || defined(__FreeBSD__))
++#elif defined(__linux__) || defined(__DragonFly__) || defined(__FreeBSD__)
++	// Also un-excluded for Android: leaving this stubbed made
++	// process_affinity_mask 0, which would turn every "use all cores" request
++	// into an empty cpu_set and an EINVAL from sched_setaffinity.
+ 	cpu_set_t cs;
+ 	CPU_ZERO(&cs);
+ 
++#ifdef ANDROID
++	if (sched_getaffinity(0, sizeof(cpu_set_t), &cs) != 0)
++	{
++		sig_log.error("Failed to get thread affinity mask: errno %d.", errno);
++		return 0;
++	}
++#else
+ 	if (int err = pthread_getaffinity_np(pthread_self(), sizeof(cpu_set_t), &cs))
+ 	{
+ 		sig_log.error("Failed to get thread affinity mask: error %d.", err);
+ 		return 0;
+ 	}
++#endif
+ 
+ 	u64 result = 0;
+ 
+--- a/rpcs3/Emu/system_config.h
++++ b/rpcs3/Emu/system_config.h
+@@ -22,7 +22,20 @@
+ 		cfg::string llvm_cpu{ this, "Use LLVM CPU" };
+ 		cfg::_int<0, 1024> llvm_threads{ this, "Max LLVM Compile Threads", 0 };
+ 		cfg::_bool llvm_precompilation{ this, "LLVM Precompilation", true };
+-		cfg::_enum<thread_scheduler_mode> thread_scheduler{this, "Thread Scheduler Mode", thread_scheduler_mode::os};
++		// "Operating System" leaves affinity untouched. That is the right default
++		// on a desktop, where every core is the same, but on a big.LITTLE phone
++		// it lets the scheduler park emulated CPUs on the little cores — measured
++		// ~39% little-core residency for SPU threads on a Snapdragon 8 Gen 2.
++		// The RPCS3 scheduler modes are what enable the affinity mask; on ARM the
++		// two behave identically (they only diverge inside the Intel/AMD
++		// arrangements), so pick the plain one.
++		cfg::_enum<thread_scheduler_mode> thread_scheduler{this, "Thread Scheduler Mode",
++#ifdef ANDROID
++			thread_scheduler_mode::old
++#else
++			thread_scheduler_mode::os
++#endif
++		};
+ 		cfg::_bool set_daz_and_ftz{ this, "Set DAZ and FTZ", false };
+ 		cfg::_enum<spu_decoder_type> spu_decoder{ this, "SPU Decoder", spu_decoder_type::llvm };
+ 		cfg::uint<0, 100> spu_reservation_busy_waiting_percentage{ this, "SPU Reservation Busy Waiting Percentage 1", 100, true };
