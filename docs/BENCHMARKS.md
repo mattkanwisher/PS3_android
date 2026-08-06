@@ -26,17 +26,24 @@ aPS3e's 0.0.34 base predates them.
 
 | Game | CellStation | aPS3e 2.41 |
 |---|---|---|
-| BlazBlue: Continuum Shift | **~2 min** (boots to save-data prompt) | self-estimated 10 min for PPU alone; *(in progress — final number TBD)* |
+| BlazBlue: Continuum Shift | **~2 min** (boots to save-data prompt) | **~4 min** to first rendered frame (its own progress UI estimated 10 min for the PPU phase; actual total was better) |
 | Racing title (2008 open-world, disc) | **~1–2 min** | **aborted after ~15 min wall / 86 CPU-minutes**, never reached title screen (progress display frozen at "module 1148 of 1148", process at ~715% CPU) |
 
 ## Frame rate
 
 | Scene | CellStation (stock) | CellStation (Turnip) | aPS3e 2.41 (stock) |
 |---|---|---|---|
-| BlazBlue: intro cinematics | — | **59.9–60.1** | TBD |
+| BlazBlue: intro cinematics | — | **59.9–60.1** | **59.1–60.0** |
 | BlazBlue: main menu | — | **60.0** (15–20% CPU total) | TBD |
 | BlazBlue: in match | — | TBD | TBD |
 | Racing title: title/city scene | 11.9–13.4 | **14.1–15.2** | — (never reached) |
+
+Both emulators hit the 60 FPS cap on this title's intros — on light 2D content
+the differentiator is boot/compile experience, not frame rate. CellStation FPS
+read from its built-in perf overlay; aPS3e has no visible FPS overlay, so its
+figure was measured externally from SurfaceFlinger frame timestamps
+(`dumpsys SurfaceFlinger --latency`, 127-frame windows), which reports
+presented frames and is if anything the more authoritative method.
 
 ## GPU memory (same racing title, title scene, kgsl total)
 
@@ -62,8 +69,7 @@ fixes; before them the run climbed ~300 MB/s and was OOM-killed at ~75 s.)
 
 ## TODO
 
-- [ ] aPS3e BlazBlue: final compile time + menu/in-match FPS (compile was in
-      progress when this file was written)
-- [ ] CellStation BlazBlue in-match FPS (expected 60; confirm in Versus)
+- [ ] BlazBlue menu/in-match FPS rows for both emulators (both expected to
+      hold 60; confirm in Versus/Training)
 - [ ] Optional: aPS3e with the same Turnip driver for a driver-matched FPS row
 - [ ] Distill into a README comparison section once rows are complete
