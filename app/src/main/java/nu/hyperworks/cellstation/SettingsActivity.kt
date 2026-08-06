@@ -5,13 +5,32 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import java.io.File
+import kotlin.concurrent.thread
 
 /** App settings. Emulator-core options still live in the on-device config.yml. */
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var content: LinearLayout
+
+    private val pickDriver = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@registerForActivityResult
+        thread {
+            val entry = GpuDriver.install(this, uri)
+            runOnUiThread {
+                if (entry == null) {
+                    Toast.makeText(this, R.string.driver_invalid, Toast.LENGTH_LONG).show()
+                } else {
+                    Settings.setGpuDriver(this, entry.dir.name)
+                    Toast.makeText(this, getString(R.string.driver_installed, entry.name), Toast.LENGTH_LONG).show()
+                    rebuild()
+                }
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +66,26 @@ class SettingsActivity : AppCompatActivity() {
                 Settings.setTouchOverlayMode(this@SettingsActivity, next)
                 text = touchOverlayLabel()
             }
+        })
+
+        content.addView(sectionHeader(R.string.section_graphics))
+        val drivers = GpuDriver.installed(this)
+        val selected = Settings.gpuDriver(this)
+        content.addView(Button(this).apply {
+            val current = drivers.firstOrNull { it.dir.name == selected }
+            text = getString(R.string.gpu_driver, current?.name ?: getString(R.string.gpu_driver_system))
+            setOnClickListener {
+                // Cycle System -> each installed driver; applies on next app start.
+                val names = listOf("") + drivers.map { it.dir.name }
+                val next = names[(names.indexOf(selected).coerceAtLeast(0) + 1) % names.size]
+                Settings.setGpuDriver(this@SettingsActivity, next)
+                Toast.makeText(this@SettingsActivity, R.string.driver_restart_needed, Toast.LENGTH_SHORT).show()
+                rebuild()
+            }
+        })
+        content.addView(Button(this).apply {
+            text = getString(R.string.install_gpu_driver)
+            setOnClickListener { pickDriver.launch(arrayOf("application/zip", "application/octet-stream")) }
         })
 
         content.addView(sectionHeader(R.string.section_folders))

@@ -4,3 +4,6 @@
 	branch = master
 	shallow = true
 	ignore = dirty
+[submodule "native/3rdparty/libadrenotools"]
+	path = native/3rdparty/libadrenotools
+	url = https://github.com/bylaws/libadrenotools

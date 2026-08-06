@@ -90,5 +90,10 @@ cmake --build "$BUILD_DIR" --target cellstation -j"$JOBS"
 echo "==> Staging stripped lib into app/src/main/jniLibs (mirrors CI)"
 mkdir -p app/src/main/jniLibs/arm64-v8a
 "$TC/bin/llvm-strip" --strip-unneeded "$BUILD_DIR/bridge/libcellstation.so" -o app/src/main/jniLibs/arm64-v8a/libcellstation.so
-ls -lh app/src/main/jniLibs/arm64-v8a/libcellstation.so
+# adrenotools hook libraries — loaded by soname from the APK's native lib dir
+# when a custom GPU driver (e.g. Turnip) is selected.
+for hook in libhook_impl.so libmain_hook.so libfile_redirect_hook.so libgsl_alloc_hook.so; do
+    "$TC/bin/llvm-strip" --strip-unneeded "$BUILD_DIR/adrenotools/src/hook/$hook" -o "app/src/main/jniLibs/arm64-v8a/$hook"
+done
+ls -lh app/src/main/jniLibs/arm64-v8a/
 echo "==> Done. Build the APK with: (cd app && ./gradlew assembleDebug)"

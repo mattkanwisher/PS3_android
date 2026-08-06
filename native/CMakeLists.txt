@@ -15,7 +15,7 @@
 #   cmake --build build --target rpcs3_emu
 
 cmake_minimum_required(VERSION 3.28)
-project(cellstation_native LANGUAGES C CXX)
+project(cellstation_native LANGUAGES C CXX ASM)
 
 if(NOT ANDROID)
     message(FATAL_ERROR "This superproject is Android-only; build upstream rpcs3 directly for desktop.")
@@ -61,6 +61,9 @@ if(ANDROID_FFMPEG_ROOT)
 else()
     message(WARNING "ANDROID_FFMPEG_ROOT not set: configure will succeed but media modules will fail to compile/link.")
 endif()
+
+# ---- adrenotools: rootless custom GPU driver loading (Turnip etc.) -----------
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/libadrenotools" "${CMAKE_BINARY_DIR}/adrenotools")
 
 # ---- unmodified upstream core ------------------------------------------------
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../rpcs3" "${CMAKE_BINARY_DIR}/rpcs3")

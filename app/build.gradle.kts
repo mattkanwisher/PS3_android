@@ -55,7 +55,10 @@ android {
     // in CI and dropped into src/main/jniLibs/arm64-v8a/ before assembling.
     packaging {
         jniLibs {
-            useLegacyPackaging = false
+            // adrenotools installs its linker-namespace hook from the app's
+            // nativeLibraryDir, which only holds real files when libraries are
+            // extracted (legacy packaging). Required for custom GPU drivers.
+            useLegacyPackaging = true
         }
     }
 }

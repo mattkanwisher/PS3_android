@@ -27,6 +27,10 @@ pin + patch series it was built from.
 - **Third-party libraries**: bundled via upstream's `3rdparty/` submodules under their
   respective licenses (LLVM, ffmpeg, curl, wolfssl, zlib, zstd, cubeb, et al.). An
   exhaustive per-dependency license inventory will be added before the first binary release.
+- **libadrenotools** (`native/3rdparty/libadrenotools` submodule, with its
+  `linkernsbypass` submodule): © Billy Laws, BSD-2-Clause. Provides rootless custom
+  GPU driver loading (e.g. Mesa Turnip) on Adreno devices. Driver packages themselves
+  are not bundled; users install them from Mesa builds (MIT).
 
 ## Etiquette
 

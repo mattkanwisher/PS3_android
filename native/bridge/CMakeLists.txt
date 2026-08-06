@@ -5,6 +5,8 @@ add_library(cellstation SHARED
     bridge.cpp
     android_pad_handler.cpp
     fatal_report.cpp
+    vulkan_loader.cpp
+    vulkan_trampolines.S
     "${rpcs3_SOURCE_DIR}/rpcs3/rpcs3_version.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/pad_thread.cpp"
     "${rpcs3_SOURCE_DIR}/rpcs3/Input/product_info.cpp"
@@ -42,6 +44,7 @@ target_link_libraries(cellstation PRIVATE
     rpcs3_emu
     3rdparty_hidapi
     Fusion
+    adrenotools
     android
     log
     nativewindow
@@ -49,5 +52,10 @@ target_link_libraries(cellstation PRIVATE
 
 # Localize symbols from the static deps (ffmpeg/LLVM/...): keeps their
 # PC-relative asm relocations valid inside a shared lib and exports only
-# the JNI surface.
+# the JNI surface — plus the Vulkan trampolines, which the core's statically
+# linked objects resolve internally anyway.
 target_link_options(cellstation PRIVATE "-Wl,--exclude-libs,ALL")
+
+# adrenotools' hook libraries load at runtime from the APK's native lib dir;
+# building the bridge must produce them even though nothing links them.
+add_dependencies(cellstation hook_impl main_hook file_redirect_hook gsl_alloc_hook)

@@ -45,4 +45,14 @@ object Settings {
         val updated = scanFolders(context) - path
         prefs(context).edit().putStringSet(KEY_SCAN_FOLDERS, updated).apply()
     }
+
+    /** Directory name under gpu_drivers/ of the selected driver; "" = system. */
+    fun gpuDriver(context: Context): String =
+        prefs(context).getString(KEY_GPU_DRIVER, "").orEmpty()
+
+    fun setGpuDriver(context: Context, dirName: String) {
+        prefs(context).edit().putString(KEY_GPU_DRIVER, dirName).apply()
+    }
+
+    private const val KEY_GPU_DRIVER = "gpu_driver"
 }

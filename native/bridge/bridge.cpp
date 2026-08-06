@@ -519,16 +519,46 @@ namespace
 	}
 } // namespace
 
+namespace chrysalis
+{
+	bool vk_dispatch_init(const char* custom_driver_dir, const char* custom_driver_name,
+		const char* hook_lib_dir, const char* tmp_lib_dir);
+}
+
+namespace
+{
+	// Custom GPU driver selection, stashed by setGpuDriver() until initialize()
+	// wires the Vulkan dispatch (driver changes need a process restart).
+	std::string g_gpu_driver_dir, g_gpu_driver_name, g_gpu_hook_dir, g_gpu_tmp_dir;
+}
+
 // ---- JNI surface (nu.hyperworks.cellstation.EmuBridge) ---------------------
 
 extern "C"
 {
+
+JNIEXPORT void JNICALL Java_nu_hyperworks_cellstation_EmuBridge_setGpuDriver(
+	JNIEnv* env, jclass, jstring dir, jstring name, jstring hook_dir, jstring tmp_dir)
+{
+	g_gpu_driver_dir = dir ? jstr(env, dir) : std::string();
+	g_gpu_driver_name = name ? jstr(env, name) : std::string();
+	g_gpu_hook_dir = hook_dir ? jstr(env, hook_dir) : std::string();
+	g_gpu_tmp_dir = tmp_dir ? jstr(env, tmp_dir) : std::string();
+}
 
 JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(JNIEnv* env, jclass, jstring root_dir, jstring user)
 {
 	static bool s_initialized = false;
 	if (s_initialized)
 		return JNI_TRUE;
+
+	// Before any Vulkan call: route the core's Vulkan imports through either
+	// the system loader or an adrenotools-hooked one (custom driver).
+	chrysalis::vk_dispatch_init(
+		g_gpu_driver_dir.empty() ? nullptr : g_gpu_driver_dir.c_str(),
+		g_gpu_driver_name.empty() ? nullptr : g_gpu_driver_name.c_str(),
+		g_gpu_hook_dir.empty() ? nullptr : g_gpu_hook_dir.c_str(),
+		g_gpu_tmp_dir.empty() ? nullptr : g_gpu_tmp_dir.c_str());
 
 	const std::string root = jstr(env, root_dir);
 	// Trailing slashes are load-bearing: fs::get_config_dir()/get_cache_dir()

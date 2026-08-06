@@ -20,6 +20,13 @@
     <string name="kind_folder">Game folder</string>
     <string name="kind_homebrew">Homebrew</string>
     <string name="section_input">Input</string>
+    <string name="section_graphics">Graphics</string>
+    <string name="gpu_driver">GPU driver: %1$s</string>
+    <string name="gpu_driver_system">System (stock)</string>
+    <string name="install_gpu_driver">Install GPU driver (adrenotools zip)…</string>
+    <string name="driver_invalid">Not a valid adrenotools driver package.</string>
+    <string name="driver_installed">Installed %1$s — restart the app to use it.</string>
+    <string name="driver_restart_needed">Takes effect after restarting the app.</string>
     <string name="section_folders">Scanned folders</string>
     <string name="section_about">About</string>
     <string name="no_scan_folders">None yet — add one with Menu → Scan folder on the library screen.</string>

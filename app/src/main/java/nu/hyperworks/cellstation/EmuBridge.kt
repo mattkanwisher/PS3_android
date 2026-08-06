@@ -14,6 +14,13 @@ object EmuBridge {
     const val SURFACE_READY = 0
     const val SURFACE_DESTROYED = 2
 
+    /**
+     * Selects the GPU driver for this process; must be called before
+     * [initialize] (driver changes take effect on the next app start).
+     * Null [driverDir] means the system driver.
+     */
+    external fun setGpuDriver(driverDir: String?, driverName: String?, hookDir: String?, tmpDir: String?)
+
     external fun initialize(rootDir: String, user: String): Boolean
 
     /** Blocks forever, draining the core's main-thread queue. Call from a dedicated thread. */

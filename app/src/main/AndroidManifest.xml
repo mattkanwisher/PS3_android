@@ -20,7 +20,7 @@
         android:icon="@mipmap/ic_launcher"
         android:isGame="true"
         android:requestLegacyExternalStorage="false"
-        android:extractNativeLibs="false"
+        android:extractNativeLibs="true"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
         <activity
