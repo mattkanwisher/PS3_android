@@ -1,17 +1,23 @@
 package nu.hyperworks.cellstation
 
 import android.os.Bundle
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.view.WindowManager
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import nu.hyperworks.cellstation.Ui.dp
 import kotlin.concurrent.thread
 
 /**
@@ -32,6 +38,8 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
     private val pad = PadState()
     private var overlay: TouchOverlayView? = null
     private var overlayMode = Settings.TouchOverlayMode.AUTO
+    private lateinit var frame: FrameLayout
+    private var quickPanel: LinearLayout? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,10 +47,10 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         val surfaceView = SurfaceView(this)
-        val frame = FrameLayout(this)
+        frame = FrameLayout(this)
         frame.addView(surfaceView)
 
-        pad.nintendoLayout = Settings.nintendoLayout(this)
+        pad.keyMapping = KeyMap.load(this)
         overlayMode = Settings.touchOverlayMode(this)
         if (overlayMode != Settings.TouchOverlayMode.NEVER) {
             overlay = TouchOverlayView(this, pad).also { frame.addView(it) }
@@ -54,6 +62,113 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         WindowInsetsControllerCompat(window, surfaceView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        // Back opens the quick panel instead of silently killing the game;
+        // quitting is an explicit action inside the panel (design doc, screen E).
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (quickPanel == null) showQuickPanel() else hideQuickPanel()
+            }
+        })
+    }
+
+    // ---- in-game quick panel ----------------------------------------------
+
+    private fun showQuickPanel() {
+        if (quickPanel != null) return
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(0xF20B0F19.toInt())
+            setPadding(dp(18), dp(20), dp(18), dp(16))
+        }
+        panel.addView(Ui.title(this, getString(R.string.quick_title), 17f).apply {
+            setPadding(0, 0, 0, dp(12))
+        })
+
+        panel.addView(Ui.actionButton(this, getString(R.string.quick_resume), primary = true) {
+            hideQuickPanel()
+        }.apply { layoutParams = panelItem() })
+
+        var toggleButton: TextView? = null
+        toggleButton = Ui.actionButton(this, overlayToggleLabel(), primary = false) {
+            val next = when (Settings.touchOverlayMode(this)) {
+                Settings.TouchOverlayMode.AUTO -> Settings.TouchOverlayMode.ALWAYS
+                Settings.TouchOverlayMode.ALWAYS -> Settings.TouchOverlayMode.NEVER
+                Settings.TouchOverlayMode.NEVER -> Settings.TouchOverlayMode.AUTO
+            }
+            Settings.setTouchOverlayMode(this, next)
+            applyOverlayMode(next)
+            toggleButton?.text = overlayToggleLabel()
+        }
+        panel.addView(toggleButton.apply { layoutParams = panelItem() })
+
+        panel.addView(android.view.View(this), LinearLayout.LayoutParams(0, 0, 1f))
+
+        panel.addView(Ui.body(this, getString(R.string.quick_close_hint), Ui.MUTED, 11.5f).apply {
+            setPadding(dp(4), 0, 0, dp(6))
+        })
+        panel.addView(TextView(this).apply {
+            text = getString(R.string.quick_close)
+            textSize = 14.5f
+            gravity = Gravity.CENTER
+            setTextColor(Ui.BAD)
+            background = Ui.focusable(this@EmulationActivity, Ui.PANEL_RAISED, 10)
+            isFocusable = true
+            isClickable = true
+            isLongClickable = true
+            setPadding(dp(18), dp(11), dp(18), dp(11))
+            setOnClickListener {
+                Toast.makeText(this@EmulationActivity, R.string.quick_close_hint, Toast.LENGTH_SHORT).show()
+            }
+            setOnLongClickListener { finish(); true }
+            layoutParams = panelItem()
+        })
+
+        val width = (resources.displayMetrics.widthPixels *
+            if (Ui.isLandscape(this)) 0.32 else 0.72).toInt()
+        frame.addView(panel, FrameLayout.LayoutParams(width, ViewGroup.LayoutParams.MATCH_PARENT).apply {
+            gravity = Gravity.END
+        })
+        quickPanel = panel
+        panel.requestFocus()
+    }
+
+    private fun hideQuickPanel() {
+        quickPanel?.let { frame.removeView(it) }
+        quickPanel = null
+    }
+
+    private fun panelItem() = LinearLayout.LayoutParams(
+        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+    ).apply { bottomMargin = dp(8) }
+
+    private fun overlayToggleLabel(): String {
+        val mode = when (Settings.touchOverlayMode(this)) {
+            Settings.TouchOverlayMode.AUTO -> getString(R.string.touch_auto)
+            Settings.TouchOverlayMode.ALWAYS -> getString(R.string.touch_always)
+            Settings.TouchOverlayMode.NEVER -> getString(R.string.touch_never)
+        }
+        return getString(R.string.touch_overlay, mode)
+    }
+
+    /** Applies an overlay mode change immediately, mid-session. */
+    private fun applyOverlayMode(mode: Settings.TouchOverlayMode) {
+        overlayMode = mode
+        when (mode) {
+            Settings.TouchOverlayMode.NEVER -> {
+                overlay?.let { view ->
+                    view.releaseAll()
+                    frame.removeView(view)
+                }
+                overlay = null
+            }
+            else -> if (overlay == null) {
+                overlay = TouchOverlayView(this, pad).also {
+                    // Keep the overlay under the quick panel if one is open.
+                    frame.addView(it, frame.indexOfChild(quickPanel).takeIf { i -> i >= 0 } ?: frame.childCount)
+                }
+            }
         }
     }
 

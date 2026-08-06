@@ -49,14 +49,21 @@ class TouchOverlayView(context: Context, private val pad: PadState) : View(conte
     /** pointer id -> control it is holding */
     private val activePointers = HashMap<Int, Control>()
 
+    // User-configurable look (Settings → Controls): opacity scales every
+    // alpha, size scales the layout unit.
+    private val opacity = Settings.overlayOpacity(context) / 100f
+    private val sizeScale = Settings.overlayScale(context) / 100f
+
+    private fun alpha(base: Int): Int = (base * opacity).toInt().coerceIn(0, 255)
+
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 3f
-        color = Color.argb(140, 255, 255, 255)
+        color = Color.argb(alpha(140), 255, 255, 255)
     }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(200, 255, 255, 255)
+        color = Color.argb(alpha(200), 255, 255, 255)
         textAlign = Paint.Align.CENTER
     }
 
@@ -70,7 +77,7 @@ class TouchOverlayView(context: Context, private val pad: PadState) : View(conte
     private fun layoutControls(w: Float, h: Float) {
         // Scale with the smaller dimension so the layout survives rotation and
         // the Thor's two very different panel shapes.
-        val unit = min(w, h) * 0.11f
+        val unit = min(w, h) * 0.11f * sizeScale
         val margin = unit * 0.8f
 
         // D-pad cross, bottom left
@@ -108,7 +115,8 @@ class TouchOverlayView(context: Context, private val pad: PadState) : View(conte
 
     override fun onDraw(canvas: Canvas) {
         for (c in controls) {
-            fill.color = if (c.pressed) Color.argb(150, 255, 255, 255) else Color.argb(60, 0, 0, 0)
+            fill.color = if (c.pressed) Color.argb(alpha(150), 255, 255, 255)
+                         else Color.argb(alpha(60), 0, 0, 0)
             if (c.round) {
                 val r = min(c.bounds.width(), c.bounds.height()) / 2f
                 canvas.drawCircle(c.bounds.centerX(), c.bounds.centerY(), r, fill)

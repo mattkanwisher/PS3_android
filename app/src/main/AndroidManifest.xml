@@ -14,6 +14,11 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Opt-in online game data only (Settings → Online game data): GameTDB
+         covers by serial and the RPCS3 community compatibility list. The
+         emulator itself never needs the network. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".CellStationApp"
         android:label="CellStation"
@@ -36,6 +41,16 @@
             android:name=".SettingsActivity"
             android:exported="false"
             android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".WelcomeActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".ControllerMappingActivity"
+            android:exported="false"
+            android:parentActivityName=".SettingsActivity" />
 
         <!-- Public launch-intent contract (docs/INTENTS.md): frontends like
              Cocoon/Daijisho boot games directly into this activity. -->

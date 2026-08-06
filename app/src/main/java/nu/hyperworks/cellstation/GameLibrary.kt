@@ -21,7 +21,11 @@ object GameLibrary {
         /** Path handed to the core. */
         val bootPath: String,
         val kind: Kind,
-        val sizeBytes: Long
+        val sizeBytes: Long,
+        /** TITLE_ID from PARAM.SFO (e.g. BLUS30443), when the game carries one. */
+        val serial: String? = null,
+        /** Path of the game's own ICON0.PNG (320x176), when present. */
+        val iconPath: String? = null
     )
 
     enum class Kind { DISC_IMAGE, GAME_FOLDER, HOMEBREW }
@@ -55,8 +59,20 @@ object GameLibrary {
     fun classify(file: File): Entry? {
         if (file.isDirectory) {
             val eboot = ebootIn(file) ?: return null
-            // The core resolves the rest of the layout from the folder itself.
-            return Entry(file.name, eboot.absolutePath, Kind.GAME_FOLDER, folderSize(file))
+            // Games describe themselves: PARAM.SFO carries the display title
+            // and serial, ICON0.PNG the 320x176 tile art. Disc dumps keep them
+            // under PS3_GAME/, installed titles at the folder root.
+            val meta = File(file, "PS3_GAME").takeIf { it.isDirectory } ?: file
+            val sfo = ParamSfo.parse(File(meta, "PARAM.SFO"))
+            val icon = File(meta, "ICON0.PNG").takeIf { it.isFile }
+            return Entry(
+                title = sfo?.get("TITLE")?.lineSequence()?.first()?.trim().takeUnless { it.isNullOrEmpty() } ?: file.name,
+                bootPath = eboot.absolutePath,
+                kind = Kind.GAME_FOLDER,
+                sizeBytes = folderSize(file),
+                serial = sfo?.get("TITLE_ID"),
+                iconPath = icon?.absolutePath
+            )
         }
 
         val name = file.name.lowercase(Locale.ROOT)
