@@ -68,5 +68,72 @@ object Settings {
         prefs(context).edit().putString(KEY_GPU_DRIVER, dirName).apply()
     }
 
+    /** Boot path of the last game launched, for the library's Continue card. */
+    fun lastPlayed(context: Context): String =
+        prefs(context).getString(KEY_LAST_PLAYED, "").orEmpty()
+
+    fun setLastPlayed(context: Context, bootPath: String) {
+        prefs(context).edit()
+            .putString(KEY_LAST_PLAYED, bootPath)
+            .putLong(KEY_LAST_PLAYED_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    fun lastPlayedAt(context: Context): Long =
+        prefs(context).getLong(KEY_LAST_PLAYED_AT, 0L)
+
+    /** True once the first-run wizard has been completed or skipped. */
+    fun setupDone(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_SETUP_DONE, false)
+
+    fun setSetupDone(context: Context) {
+        prefs(context).edit().putBoolean(KEY_SETUP_DONE, true).apply()
+    }
+
+    /** Boot paths the user removed from the library view (files stay on disk). */
+    fun hiddenGames(context: Context): Set<String> =
+        prefs(context).getStringSet(KEY_HIDDEN_GAMES, emptySet()).orEmpty()
+
+    fun hideGame(context: Context, bootPath: String) {
+        prefs(context).edit()
+            .putStringSet(KEY_HIDDEN_GAMES, hiddenGames(context) + bootPath)
+            .apply()
+    }
+
+    fun unhideAllGames(context: Context) {
+        prefs(context).edit().remove(KEY_HIDDEN_GAMES).apply()
+    }
+
+    /** Opt-in for GameTDB covers + the RPCS3 compatibility feed. Default off. */
+    fun onlineData(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_ONLINE_DATA, false)
+
+    fun setOnlineData(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ONLINE_DATA, enabled).apply()
+    }
+
+    /** On-screen controller opacity, percent 20..100. */
+    fun overlayOpacity(context: Context): Int =
+        prefs(context).getInt(KEY_OVERLAY_OPACITY, 100).coerceIn(20, 100)
+
+    fun setOverlayOpacity(context: Context, percent: Int) {
+        prefs(context).edit().putInt(KEY_OVERLAY_OPACITY, percent.coerceIn(20, 100)).apply()
+    }
+
+    /** On-screen controller size, percent 60..150. */
+    fun overlayScale(context: Context): Int =
+        prefs(context).getInt(KEY_OVERLAY_SCALE, 100).coerceIn(60, 150)
+
+    fun setOverlayScale(context: Context, percent: Int) {
+        prefs(context).edit().putInt(KEY_OVERLAY_SCALE, percent.coerceIn(60, 150)).apply()
+    }
+
+    private const val KEY_OVERLAY_OPACITY = "overlay_opacity"
+    private const val KEY_OVERLAY_SCALE = "overlay_scale"
+    private const val KEY_ONLINE_DATA = "online_data"
     private const val KEY_GPU_DRIVER = "gpu_driver"
+    private const val KEY_LAST_PLAYED = "last_played"
+    private const val KEY_LAST_PLAYED_AT = "last_played_at"
+    private const val KEY_SETUP_DONE = "setup_done"
+    private const val KEY_HIDDEN_GAMES = "hidden_games"
 }

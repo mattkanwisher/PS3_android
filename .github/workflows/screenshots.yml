@@ -1,0 +1,54 @@
+name: screenshots
+
+# Dev utility: boot the app on an emulator with staged demo content and
+# capture UI screenshots in both orientations. Dispatch with the run id of
+# an android-core run whose cellstation-debug-apk-compat artifact to use.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: android-core run id holding cellstation-debug-apk-compat
+        required: true
+
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/checkout@v4
+
+      - name: Init rpcs3 submodule (homebrew payload only)
+        run: git submodule update --init --depth 1 rpcs3
+
+      - name: Fetch APK (compat)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eux
+          gh run download "${{ inputs.run_id }}" -n cellstation-debug-apk-compat --repo "$GITHUB_REPOSITORY" -D /tmp/apk
+
+      - name: Capture screenshots
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-snapshot -no-audio -no-boot-anim -no-window -gpu swiftshader_indirect -camera-back none
+          script: bash ci/screenshots.sh "$(ls /tmp/apk/*.apk | head -1)" rpcs3/bin/test/gs_gcm_tetris.elf shots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-screenshots
+          path: shots/*.png
+          if-no-files-found: warn

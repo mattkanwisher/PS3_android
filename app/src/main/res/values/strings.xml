@@ -20,8 +20,6 @@
     <string name="kind_folder">Game folder</string>
     <string name="kind_homebrew">Homebrew</string>
     <string name="section_input">Input</string>
-    <string name="nintendo_layout_on">Face buttons: Positional (Nintendo-layout pad)</string>
-    <string name="nintendo_layout_off">Face buttons: By label (A=Cross, B=Circle)</string>
     <string name="section_graphics">Graphics</string>
     <string name="gpu_driver">GPU driver: %1$s</string>
     <string name="gpu_driver_system">System (stock)</string>
@@ -44,4 +42,89 @@
     <string name="touch_never">Off</string>
     <string name="emulation_channel">Emulation</string>
     <string name="emulation_running">Game running</string>
+
+    <!-- Library -->
+    <string name="nav_library">Library</string>
+    <string name="nav_homebrew">Homebrew</string>
+    <string name="search_hint">Search games…</string>
+    <string name="scanning_library">Scanning for games…</string>
+    <string name="continue_play">Continue</string>
+    <string name="continue_subtitle">Last played %1$s</string>
+    <string name="chip_firmware">FW %1$s</string>
+    <string name="chip_no_firmware">No firmware</string>
+    <string name="chip_driver">GPU: %1$s</string>
+    <string name="chip_driver_system">GPU: system</string>
+    <string name="chip_scanning">Scanning…</string>
+
+    <!-- Per-game sheet -->
+    <string name="sheet_play">▶ Play</string>
+    <string name="sheet_details">Details</string>
+    <string name="sheet_hide">Hide</string>
+    <string name="sheet_hidden">Hidden from library. Restore from Settings → Scanned folders.</string>
+    <string name="detail_serial">Serial: %1$s</string>
+    <string name="detail_kind">Type: %1$s</string>
+    <string name="detail_size">Size: %1$s</string>
+    <string name="detail_path">Path: %1$s</string>
+
+    <!-- First-run wizard -->
+    <string name="welcome_title">Set up CellStation</string>
+    <string name="welcome_subtitle">Three quick steps. Every one of them can wait — you can change all of this later in Settings.</string>
+    <string name="step_n">Step %1$d</string>
+    <string name="step_firmware">PS3 firmware</string>
+    <string name="step_firmware_note">Install PS3UPDAT.PUP, downloadable from Sony\'s site. Homebrew runs without it.</string>
+    <string name="step_firmware_ok">Installed · %1$s</string>
+    <string name="step_firmware_action">Install PUP…</string>
+    <string name="step_pending">Not installed</string>
+    <string name="step_games">Games folder</string>
+    <string name="step_games_note">Point at your ISO / game-folder library. Games are scanned in place — nothing is copied.</string>
+    <string name="step_games_permission">Storage access needed</string>
+    <string name="step_games_default">Using standard folders</string>
+    <string name="step_games_ok">%1$d folder(s) added</string>
+    <string name="step_games_action">Choose folder…</string>
+    <string name="step_driver">GPU driver</string>
+    <string name="step_driver_note">Turnip is recommended on Adreno. The system driver works out of the box.</string>
+    <string name="step_driver_action">Manage in Settings…</string>
+    <string name="welcome_done">Start playing</string>
+    <string name="welcome_skip">Skip for now — homebrew runs without firmware, and everything here lives in Settings later.</string>
+
+    <!-- Settings -->
+    <string name="cat_quick">Quick</string>
+    <string name="row_touch_overlay">On-screen controller</string>
+    <string name="row_touch_overlay_sub">Auto hides the touch controls as soon as a physical controller is used.</string>
+    <string name="seg_auto">Auto</string>
+    <string name="seg_always">Always</string>
+    <string name="seg_off">Off</string>
+    <string name="row_gpu_driver">GPU driver</string>
+    <string name="row_gpu_driver_sub">Takes effect after restarting the app. Turnip recommended on Adreno.</string>
+    <string name="seg_on">On</string>
+    <string name="cat_controls">Controls</string>
+    <string name="row_face_buttons">Face buttons</string>
+    <string name="row_face_buttons_sub">Positional puts Cross on the bottom on Nintendo-labeled pads (the Thor\'s built-in controller). Ignored once a custom mapping is saved.</string>
+    <string name="face_by_label">By label</string>
+    <string name="face_positional">Positional</string>
+    <string name="row_overlay_opacity">On-screen controller opacity</string>
+    <string name="row_overlay_opacity_sub">How visible the touch controls are over the game.</string>
+    <string name="row_overlay_scale">On-screen controller size</string>
+    <string name="row_overlay_scale_sub">Scales every touch control. Applies on the next game start.</string>
+    <string name="map_buttons">Map controller buttons…</string>
+    <string name="mapping_title">Controller mapping</string>
+    <string name="mapping_subtitle">Tap a control, then press the physical button to bind it. Sticks and analog triggers map automatically.</string>
+    <string name="preset_standard">Standard</string>
+    <string name="preset_swapped">Nintendo swap</string>
+    <string name="mapping_applied">Preset applied.</string>
+    <string name="mapping_unbound">Not bound</string>
+    <string name="mapping_press_now">Press a button on your controller…\n(Back on the touchscreen cancels)</string>
+    <string name="row_online_data">Online game data</string>
+    <string name="row_online_data_sub">Downloads box covers from GameTDB and the RPCS3 community compatibility list (the colored dot on each game). Matched by serial — nothing about your library is uploaded.</string>
+    <string name="about_online_data">Optional online data: box covers courtesy of GameTDB.com (non-commercial); compatibility statuses courtesy of the RPCS3 community compatibility list at rpcs3.net.</string>
+    <string name="remove">Remove</string>
+    <string name="restore_hidden">Restore %1$d hidden game(s)</string>
+    <string name="hidden_restored">Hidden games restored.</string>
+    <string name="about_attribution">CellStation is an unofficial Android port of RPCS3 (GPL-2.0), not affiliated with or supported by the RPCS3 team. No firmware or game content is included.</string>
+
+    <!-- In-game quick panel -->
+    <string name="quick_title">Quick settings</string>
+    <string name="quick_resume">Resume</string>
+    <string name="quick_close">Close game</string>
+    <string name="quick_close_hint">Hold to close — unsaved progress is lost.</string>
 </resources>
