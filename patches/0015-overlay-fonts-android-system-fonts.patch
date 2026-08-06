@@ -1,0 +1,42 @@
+--- a/rpcs3/Emu/RSX/Overlays/overlay_fonts.cpp
++++ b/rpcs3/Emu/RSX/Overlays/overlay_fonts.cpp
+@@ -120,12 +120,18 @@
+ 			{
+ 				result.font_names.emplace_back("Arial.ttf");
+ 				result.font_names.emplace_back("arial.ttf");
+-#ifdef __APPLE__
++#if defined(__APPLE__) || defined(__ANDROID__)
++				// Android ships no Arial; these are the names present in
++				// /system/fonts (DroidSans on older images, Roboto/Noto since).
+ 				result.font_names.emplace_back("DejaVuSans.ttf");
+ 				result.font_names.emplace_back("NotoSans-Regular.ttf");
+ 				result.font_names.emplace_back("Roboto-Regular.ttf");
+ 				result.font_names.emplace_back("OpenSans-Regular.ttf");
+ 				result.font_names.emplace_back("FreeSans.ttf");
++#ifdef __ANDROID__
++				result.font_names.emplace_back("DroidSans.ttf");
++				result.font_names.emplace_back("NotoSerif-Regular.ttf");
++#endif
+ #elif !defined(_WIN32)
+ 				result.font_names.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"); // ubuntu
+ 				result.font_names.emplace_back("/usr/share/fonts/TTF/DejaVuSans.ttf");             // arch
+@@ -146,6 +152,9 @@
+ 				// Known system font as last fallback
+ 				result.font_names.emplace_back("Yu Gothic.ttf");
+ 				result.font_names.emplace_back("YuGothR.ttc");
++#ifdef __ANDROID__
++				result.font_names.emplace_back("NotoSansCJK-Regular.ttc");
++#endif
+ #ifdef _WIN32
+ 				result.font_names.emplace_back("msyh.ttc");
+ 				result.font_names.emplace_back("simsunb.ttc");
+@@ -165,6 +174,9 @@
+ 				// Known system font as last fallback
+ 				result.font_names.emplace_back("Malgun Gothic.ttf");
+ 				result.font_names.emplace_back("malgun.ttf");
++#ifdef __ANDROID__
++				result.font_names.emplace_back("NotoSansCJK-Regular.ttc");
++#endif
+ 				break;
+ 			}
+ 			}

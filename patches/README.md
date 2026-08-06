@@ -97,3 +97,13 @@ Use `git -C rpcs3 checkout -- . && git -C rpcs3 clean -fd` to reset the submodul
     subpools to cut pool churn (hardware-verified on AYN Thor / Adreno
     740: GPU memory now plateaus instead of climbing ~300 MB/s).
     Upstream-status: candidate (Android parts).
+15. `0015-overlay-fonts-android-system-fonts.patch` — the overlay renderer
+    (progress dialogs, messages, home menu) throws a fatal when no font is
+    found, which kills the RSX thread and leaves a black screen. Its font
+    name list has no Android entries and its only lookup dir on Android was
+    `dev_flash`, so before firmware is installed there was nothing to load:
+    booting a game without firmware black-screened instead of showing the
+    compile progress dialog. Add Android's system font names (Roboto/Noto/
+    DroidSans, plus NotoSansCJK for CJK and hangul); the embedder supplies
+    `/system/fonts/` et al through `get_font_dirs`. Upstream-status:
+    candidate.

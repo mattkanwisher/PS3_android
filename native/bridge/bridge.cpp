@@ -440,7 +440,15 @@ namespace
 		callbacks.get_photo_path = [](std::string_view) -> std::string { return {}; };
 		callbacks.get_image_info = [](const std::string&, std::string&, s32&, s32&, s32&) -> bool { return false; };
 		callbacks.get_scaled_image = [](const std::string&, s32, s32, s32&, s32&, u8*, bool) -> bool { return false; };
-		callbacks.get_font_dirs = []() -> std::vector<std::string> { return {}; };
+		// The overlay renderer (progress dialogs, messages, the home menu) throws
+		// a fatal if it can't find any font, which kills the RSX thread and
+		// leaves a black screen. Its only other source is dev_flash, so before
+		// firmware is installed there is nothing to fall back on. Android always
+		// ships fonts here, so offer them to every lookup.
+		callbacks.get_font_dirs = []() -> std::vector<std::string>
+		{
+			return {"/system/fonts/", "/product/fonts/", "/system_ext/fonts/"};
+		};
 		callbacks.on_install_pkgs = [](const std::vector<std::string>&) { return false; };
 		callbacks.enable_gamemode = [](bool) {};
 		callbacks.get_database_config = [](const std::string&) -> std::string { return {}; };
