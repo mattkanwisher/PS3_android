@@ -671,6 +671,31 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
             gameDetails(entry)
         })
+        // Only meaningful for titles that carry a serial — that is the key
+        // rpcs3 files the compiled caches under.
+        entry.serial?.let { serial ->
+            addAction(Ui.actionButton(this, getString(R.string.sheet_clear_cache), primary = false) {
+                dialog.dismiss()
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.sheet_clear_cache)
+                    .setMessage(getString(R.string.clear_cache_confirm, entry.title))
+                    .setPositiveButton(R.string.sheet_clear_cache) { _, _ ->
+                        thread {
+                            val freed = EmuBridge.clearGameCache(serial)
+                            runOnUiThread {
+                                Toast.makeText(
+                                    this,
+                                    if (freed > 0) getString(R.string.cache_cleared, GameLibrary.humanSize(freed))
+                                    else getString(R.string.cache_empty),
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            })
+        }
         addAction(Ui.actionButton(this, getString(R.string.sheet_hide), primary = false) {
             Settings.hideGame(this, entry.bootPath)
             dialog.dismiss()

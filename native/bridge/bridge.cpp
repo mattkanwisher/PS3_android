@@ -711,6 +711,51 @@ JNIEXPORT jstring JNICALL Java_nu_hyperworks_cellstation_EmuBridge_firmwareVersi
 	return env->NewStringUTF(utils::get_firmware_version().c_str());
 }
 
+// Deletes a game's compiled caches: rpcs3 keys them by TITLE_ID under
+// <cache>/cache/<serial>/ (PPU LLVM object cache, SPU cache, shader cache).
+// Deleting makes the next boot recompile from scratch — the fix for a cache
+// poisoned by a crash mid-compile, or one built by an older core.
+// Returns the number of bytes freed.
+JNIEXPORT jlong JNICALL Java_nu_hyperworks_cellstation_EmuBridge_clearGameCache(JNIEnv* env, jclass, jstring jserial)
+{
+	const std::string serial = jstr(env, jserial);
+
+	// Empty serial would resolve to the whole cache root; refuse rather than
+	// wiping every game's caches from a per-game action.
+	if (serial.empty() || serial.find('/') != std::string::npos || !Emu.IsStopped())
+		return 0;
+
+	const std::string dir = rpcs3::utils::get_cache_dir() + serial + "/";
+	if (!fs::is_dir(dir))
+		return 0;
+
+	u64 freed = 0;
+	for (const auto& entry : fs::dir(dir))
+	{
+		if (!entry.is_directory)
+		{
+			freed += entry.size;
+			continue;
+		}
+		if (entry.name != "." && entry.name != "..")
+		{
+			for (const auto& sub : fs::dir(dir + entry.name))
+			{
+				if (!sub.is_directory) freed += sub.size;
+			}
+		}
+	}
+
+	if (!fs::remove_all(dir, true))
+	{
+		cellstation_log.error("Failed to clear cache for %s", serial);
+		return 0;
+	}
+
+	cellstation_log.success("Cleared %s cache (%lluK)", serial, freed / 1024);
+	return static_cast<jlong>(freed);
+}
+
 // Pulls PARAM.SFO / ICON0.PNG out of a disc image into out_dir using the
 // core's own ISO reader, so the library can show real titles and tile art
 // for .iso games. Uses the same virtual-device slot as booting an ISO does,

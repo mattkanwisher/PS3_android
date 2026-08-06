@@ -39,6 +39,13 @@ object EmuBridge {
      */
     external fun extractIsoAssets(isoPath: String, outDir: String): Boolean
 
+    /**
+     * Deletes the compiled PPU/SPU/shader caches for one game (by TITLE_ID).
+     * The next boot recompiles from scratch. Returns bytes freed; no-op while
+     * a game is running.
+     */
+    external fun clearGameCache(serial: String): Long
+
     /** Boots a game (path on the local filesystem). Returns game_boot_result (0 = ok). */
     external fun boot(path: String): Int
 

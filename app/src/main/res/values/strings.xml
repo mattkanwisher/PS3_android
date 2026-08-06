@@ -20,6 +20,10 @@
     <string name="kind_folder">Game folder</string>
     <string name="kind_homebrew">Homebrew</string>
     <string name="section_input">Input</string>
+    <string name="sheet_clear_cache">Clear cache</string>
+    <string name="clear_cache_confirm">Delete the compiled shader and CPU caches for %1$s? The next boot recompiles them, which takes longer once. Saves and settings are untouched.</string>
+    <string name="cache_cleared">Cache cleared — %1$s freed.</string>
+    <string name="cache_empty">No cached data for this game.</string>
     <string name="detected_device">Detected: %1$s — defaults applied</string>
     <string name="section_graphics">Graphics</string>
     <string name="gpu_driver">GPU driver: %1$s</string>
