@@ -25,6 +25,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
         const val ACTION_EMULATE = "nu.hyperworks.cellstation.EMULATE"
         const val EXTRA_BOOT_PATH = "bootPath"
         const val EXTRA_GAME_DIR = "gameDir"
+        const val EXTRA_STRETCH = "stretch"
     }
 
     private var booted = false
@@ -71,6 +72,7 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
             }
             EmulationService.start(this, java.io.File(path).nameWithoutExtension)
 
+            val stretch = intentBoolean(EXTRA_STRETCH)
             thread(name = "EmuBoot") {
                 val result = EmuBridge.boot(path)
                 if (result != 0) {
@@ -78,8 +80,34 @@ class EmulationActivity : AppCompatActivity(), SurfaceHolder.Callback {
                         Toast.makeText(this, getString(R.string.boot_failed, result), Toast.LENGTH_LONG).show()
                         finish()
                     }
+                    return@thread
+                }
+                // Emu.Load() reloads config.yml, so a per-launch override can only
+                // be applied once the boot returns; the renderer re-reads the
+                // setting every frame, well before the game presents anything.
+                if (stretch != null) {
+                    EmuBridge.setStretchToDisplayArea(stretch, persist = false)
                 }
             }
+        }
+    }
+
+    /**
+     * Reads an optional boolean extra. `am start -e <name> true` delivers a
+     * string, so frontends can pass either form; absent/unparsable means
+     * "leave the persisted setting alone".
+     */
+    @Suppress("DEPRECATION")
+    private fun intentBoolean(name: String): Boolean? {
+        return when (val value = intent.extras?.get(name)) {
+            is Boolean -> value
+            is Number -> value.toInt() != 0
+            is String -> when (value.lowercase()) {
+                "true", "1", "on", "yes" -> true
+                "false", "0", "off", "no" -> false
+                else -> null
+            }
+            else -> null
         }
     }
 

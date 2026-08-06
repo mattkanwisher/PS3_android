@@ -95,6 +95,17 @@ class SettingsActivity : AppCompatActivity() {
             text = getString(R.string.install_gpu_driver)
             setOnClickListener { pickDriver.launch(arrayOf("application/zip", "application/octet-stream")) }
         })
+        content.addView(android.widget.CheckBox(this).apply {
+            text = getString(R.string.stretch_to_display)
+            isChecked = EmuBridge.stretchToDisplayArea()
+            setOnCheckedChangeListener { _, checked ->
+                EmuBridge.setStretchToDisplayArea(checked, persist = true)
+            }
+        })
+        content.addView(TextView(this).apply {
+            text = getString(R.string.stretch_to_display_hint)
+            textSize = 12f
+        })
 
         content.addView(sectionHeader(R.string.section_folders))
         val folders = Settings.scanFolders(this).sorted()
