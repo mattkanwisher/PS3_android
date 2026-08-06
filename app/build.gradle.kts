@@ -13,7 +13,7 @@ android {
         targetSdk = 35
         // CI stamps these from the git tag / run number; local builds fall back.
         versionCode = (System.getenv("CELLSTATION_VERSION_CODE") ?: "1").toInt()
-        versionName = System.getenv("CELLSTATION_VERSION") ?: "0.1.0-dev"
+        versionName = System.getenv("CELLSTATION_VERSION") ?: "0.2.0-dev"
         ndk {
             abiFilters += "arm64-v8a"
         }

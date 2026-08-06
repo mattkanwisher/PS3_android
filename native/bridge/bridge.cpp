@@ -631,7 +631,28 @@ JNIEXPORT jboolean JNICALL Java_nu_hyperworks_cellstation_EmuBridge_initialize(J
 		video_renderer::vulkan,
 #endif
 	});
+
+	// Fresh installs get their config.yml from these defaults, so a Null
+	// default means every first-run boots to a black screen. Mirror
+	// main_application: enumerate Vulkan and make it the default when a
+	// device is present (mandatory on the Snapdragon targets).
 	Emu.SetDefaultRenderer(video_renderer::null);
+#if defined(HAVE_VULKAN)
+	{
+		vk::instance vulkan_probe;
+		if (vulkan_probe.create("CellStation", true))
+		{
+			vulkan_probe.bind();
+			if (const auto& gpus = vulkan_probe.enumerate_devices(); !gpus.empty())
+			{
+				const std::string adapter = gpus[0].get_name();
+				cellstation_log.notice("Default renderer: Vulkan ('%s')", adapter);
+				Emu.SetDefaultRenderer(video_renderer::vulkan);
+				Emu.SetDefaultGraphicsAdapter(adapter);
+			}
+		}
+	}
+#endif
 	Emu.Init();
 
 #ifdef ARCH_ARM64
