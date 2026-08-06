@@ -70,8 +70,8 @@ game's PPU code into **the same 162 modules**, so they are doing equivalent work
 | Cold PPU compile | **503 s** (2 compile threads) | **201 s** (4 compile threads) |
 | First cold run | completed the compile | **SIGSEGV** right after compiling, back to the game list |
 | Second run | — | completed |
-| Furthest reached | HDD install → loading, then a PPU fault (below) | **in-game name entry** |
-| Frame rate | not reached | **30.0 fps** (33.34 ms, the game's own 30 fps cap) |
+| Furthest reached | **in-game, Downtown** (needs Debug Console Mode) | **in-game name entry** |
+| Frame rate | **20.0 fps** (in-game, open world) | **30.0 fps** (menu — different scene) |
 | HDD install size | 2.5 GB | 2.5 GB |
 
 aPS3e gets further on this title today. Two things are worth separating out
@@ -89,10 +89,28 @@ from that, because they cut in different directions:
   chasing separately. It also means the FPS rows above are not a like-for-like
   SPU comparison.
 
-CellStation's remaining blocker on this title is a PPU fault during the San
-Vanelona load: `Access violation reading location 0xfffffffc (unmapped memory)`
-on the game's `load_thread`, after which rpcs3 freezes emulation (every thread
-idles at 0% CPU, which reads like a hang but is not one).
+CellStation's blocker on this title turned out to be a guest-side out-of-memory,
+not an emulator fault. The game printed its own diagnostic immediately before
+dying:
+
+    sys_tty_write(): "GetLargestFreeBlock = 2552"
+    PPU (load_thread) [0x008bc288]: Access violation reading location 0xfffffffc
+
+Skate's allocator could not satisfy a request (largest free block 2552 bytes),
+returned NULL, and the game dereferenced it — reading 4 bytes below null gives
+exactly 0xfffffffc. The access violation was the symptom; the emulated console
+simply ran out of RAM after the 2.5 GB HDD install.
+
+Setting **Debug Console Mode** for this game (per-game config — 320 MB of devkit
+RAM instead of the retail 256 MB) clears it, and Skate reaches actual gameplay:
+Downtown San Vanelona, HUD and minimap live, **20.0 fps** measured from
+SurfaceFlinger. One known artifact remains — untextured ground geometry,
+alongside `RSX: Format incompatibility detected ... (VK_FORMAT=0x25,
+GCM_FORMAT=0x95)` in the log.
+
+Note the two FPS figures in the table above are **not** comparable: aPS3e's 30 fps
+was its name-entry menu, CellStation's 20 fps is open-world gameplay with the
+city streaming. A like-for-like row needs aPS3e at the same location.
 
 ### Compile threads: faster is not better here
 
@@ -128,7 +146,9 @@ fix if heavy titles are ever to compile in a single pass.
 
 - [x] CellStation BlazBlue in-match: **60.0 FPS** (Tutorial mode, 2026-08-06)
 - [x] Skate: module counts, cold-compile times, thread-count A/B (2026-08-07)
-- [ ] CellStation Skate FPS — blocked on the `load_thread` PPU fault above
+- [x] CellStation Skate FPS: **20.0 fps** in-game (2026-08-07)
+- [ ] aPS3e Skate in-game FPS at the same location, for a comparable row
+- [ ] Skate: untextured ground artifact (RSX format incompatibility)
 - [ ] Dead or Alive 5 Ultimate rows (entry prepared for aPS3e's game list;
       CellStation reaches its title screen)
 - [ ] aPS3e BlazBlue menu/in-match FPS rows
