@@ -13,7 +13,7 @@ on the same device, same game files, back to back on the same day.
 | Device | AYN Thor — Snapdragon 8 Gen 2, Adreno 740, 12 GB RAM, Android 13 |
 | Date | 2026-08-06 |
 | CellStation | master (rpcs3 core 0.0.42, submodule 652cf60 + patches 0001–0014), LLVM 22 |
-| aPS3e | 2.41 (2026-07-30 release, vendored rpcs3 core 0.0.34) |
+| aPS3e | 2.41 for the 2026-08-06 rows; 3.0.321 (beta)-pro for the 2026-08-07 Skate rows |
 | Drivers | System = stock Qualcomm blob; Turnip = Mesa Turnip 26.0.0-rc8 via adrenotools |
 | Method | Same ISO files, cold first boot (no caches), FPS read from each emulator's own overlay at matching scenes |
 
@@ -58,6 +58,63 @@ resource that actually kills emulator processes on this device.
 (CellStation's stock-driver figure is *after* patch 0014's memory-management
 fixes; before them the run climbed ~300 MB/s and was OOM-killed at ~75 s.)
 
+## Skate (2026-08-07, aPS3e 3.0.321)
+
+The most directly comparable run so far: same disc, same device, both cold
+(caches deleted), settings matched where they matter. Both emulators split the
+game's PPU code into **the same 162 modules**, so they are doing equivalent work.
+
+| | CellStation | aPS3e 3.0.321 |
+|---|---|---|
+| PPU modules | 162 | 162 |
+| Cold PPU compile | **503 s** (2 compile threads) | **201 s** (4 compile threads) |
+| First cold run | completed the compile | **SIGSEGV** right after compiling, back to the game list |
+| Second run | — | completed |
+| Furthest reached | HDD install → loading, then a PPU fault (below) | **in-game name entry** |
+| Frame rate | not reached | **30.0 fps** (33.34 ms, the game's own 30 fps cap) |
+| HDD install size | 2.5 GB | 2.5 GB |
+
+aPS3e gets further on this title today. Two things are worth separating out
+from that, because they cut in different directions:
+
+- **A first-boot crash on a heavy title is not specific to CellStation.** aPS3e
+  segfaulted on its own first cold run of this game and needed a relaunch,
+  which is the same "relaunch and it picks up where it left off" behaviour
+  CellStation shows. Both inherit it from the shared core's caching design.
+- **Skate needs `SPU XFloat Accuracy: Accurate` on CellStation** (shipped as a
+  per-game config). With the default `Approximate` its self-contained SPU video
+  decoder (`vp6_spu`) produces a green frozen frame and its job manager spins
+  five SPU threads forever. aPS3e runs this title on `Approximate` without that
+  artifact, so this is a divergence in our build, not a core-wide trait — worth
+  chasing separately. It also means the FPS rows above are not a like-for-like
+  SPU comparison.
+
+CellStation's remaining blocker on this title is a PPU fault during the San
+Vanelona load: `Access violation reading location 0xfffffffc (unmapped memory)`
+on the game's `load_thread`, after which rpcs3 freezes emulation (every thread
+idles at 0% CPU, which reads like a hang but is not one).
+
+### Compile threads: faster is not better here
+
+Same disc, same cold cache, back to back — raising `Max LLVM Compile Threads`
+from the shipped default of 2 to aPS3e's 4:
+
+| Threads | Modules compiled | Time | Outcome |
+|---|---|---|---|
+| 4 | 102 of 162 | 203 s | `Scudo OOM` on every size class → `SIGABRT` in a compile worker |
+| 2 | **162 of 162** | 503 s | completed cleanly |
+
+4 threads is roughly 1.6x faster per module and never finishes: more concurrent
+LLVM workers means more simultaneous heap, and Android's scudo allocator caps
+each malloc size class at 256 MB (65536 chunks of 4112 bytes, exactly) — a
+limit desktop allocators do not have. **The default stays at 2.**
+
+This also corrects an earlier assumption in this file's history: the crashes
+are *not* address-space exhaustion. The 2-thread run reached `VmSize` 204 GB
+without dying. The JIT address-space leak inflates `VmSize` but the scudo
+size-class ceiling is what actually kills the process, and it is the thing to
+fix if heavy titles are ever to compile in a single pass.
+
 ## Setup and platform notes (qualitative)
 
 - **CellStation**: firmware + game dir + driver chosen in-app; adrenotools
@@ -70,6 +127,23 @@ fixes; before them the run climbed ~300 MB/s and was OOM-killed at ~75 s.)
 ## TODO
 
 - [x] CellStation BlazBlue in-match: **60.0 FPS** (Tutorial mode, 2026-08-06)
+- [x] Skate: module counts, cold-compile times, thread-count A/B (2026-08-07)
+- [ ] CellStation Skate FPS — blocked on the `load_thread` PPU fault above
+- [ ] Dead or Alive 5 Ultimate rows (entry prepared for aPS3e's game list;
+      CellStation reaches its title screen)
 - [ ] aPS3e BlazBlue menu/in-match FPS rows
 - [ ] Optional: aPS3e with the same Turnip driver for a driver-matched FPS row
 - [ ] Distill into a README comparison section once rows are complete
+
+## Method notes
+
+- aPS3e has no FPS overlay, so its frame rate is measured externally from
+  SurfaceFlinger frame timestamps: `dumpsys SurfaceFlinger --latency
+  'SurfaceView[aenu.aps3e/aenu.aps3e.EmulatorActivity](BLAST)#<id>'`, median
+  inter-frame delta over a ~126-frame window. That reports actually-presented
+  frames, so it is if anything the stricter measurement.
+- Games are registered with aPS3e in `game_list.json` (SAF content URI, name,
+  serial, category, version, resolution, sound_format, base64 ICON0). Adding a
+  disc that lives under an already-granted tree needs no re-picking.
+- Compile time is measured to the end of the PPU worker threads, not to first
+  frame, so install and SPU compilation are excluded from those rows.
