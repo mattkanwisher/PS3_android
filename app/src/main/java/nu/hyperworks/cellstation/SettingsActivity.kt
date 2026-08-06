@@ -213,17 +213,15 @@ class SettingsActivity : AppCompatActivity() {
         pane.addView(Ui.divider(this, vertical = false).apply {
             (layoutParams as? LinearLayout.LayoutParams)?.topMargin = dp(12)
         })
-        content.addView(android.widget.CheckBox(this).apply {
-            text = getString(R.string.stretch_to_display)
-            isChecked = EmuBridge.stretchToDisplayArea()
-            setOnCheckedChangeListener { _, checked ->
-                EmuBridge.setStretchToDisplayArea(checked, persist = true)
-            }
-        })
-        content.addView(TextView(this).apply {
-            text = getString(R.string.stretch_to_display_hint)
-            textSize = 12f
-        })
+        row(
+            getString(R.string.stretch_to_display),
+            getString(R.string.stretch_to_display_hint),
+            Ui.segmented(
+                this,
+                listOf(getString(R.string.seg_off), getString(R.string.seg_on)),
+                if (EmuBridge.stretchToDisplayArea()) 1 else 0
+            ) { i -> EmuBridge.setStretchToDisplayArea(i == 1, persist = true) }
+        )
 
         row(
             getString(R.string.row_online_data),
